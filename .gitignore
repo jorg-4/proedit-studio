@@ -1,0 +1,33 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Test assets (large files)
+assets/test/*.mp4
+assets/test/*.mov
+assets/test/*.mkv
+
+# Logs
+*.log
+
+# Build artifacts
+*.dll
+*.so
+*.dylib
+
+# Temporary files
+*.tmp
+*.temp

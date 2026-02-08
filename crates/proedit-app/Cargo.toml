@@ -1,0 +1,30 @@
+[package]
+name = "proedit-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "ProEdit Studio main application"
+
+[[bin]]
+name = "proedit"
+path = "src/main.rs"
+
+[dependencies]
+proedit-core.workspace = true
+proedit-media.workspace = true
+proedit-gpu.workspace = true
+proedit-timeline.workspace = true
+proedit-effects.workspace = true
+proedit-ui.workspace = true
+proedit-audio.workspace = true
+proedit-ai.workspace = true
+
+eframe.workspace = true
+egui.workspace = true
+egui-wgpu.workspace = true
+egui_dock.workspace = true
+wgpu.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio.workspace = true
+anyhow.workspace = true

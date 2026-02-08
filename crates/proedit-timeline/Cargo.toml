@@ -1,0 +1,14 @@
+[package]
+name = "proedit-timeline"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Timeline data model for ProEdit Studio"
+
+[dependencies]
+proedit-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+smallvec.workspace = true

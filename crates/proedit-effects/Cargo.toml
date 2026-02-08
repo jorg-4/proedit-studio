@@ -1,0 +1,16 @@
+[package]
+name = "proedit-effects"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "GPU effects library for ProEdit Studio"
+
+[dependencies]
+proedit-core.workspace = true
+proedit-gpu.workspace = true
+wgpu.workspace = true
+bytemuck.workspace = true
+glam.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true

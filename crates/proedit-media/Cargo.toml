@@ -1,0 +1,19 @@
+[package]
+name = "proedit-media"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Media I/O for ProEdit Studio using FFmpeg"
+
+[dependencies]
+proedit-core.workspace = true
+ffmpeg-sidecar.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+parking_lot.workspace = true
+crossbeam-channel.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[features]
+default = []

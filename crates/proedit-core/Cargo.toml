@@ -1,0 +1,17 @@
+[package]
+name = "proedit-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Core types for ProEdit Studio video editor"
+
+[dependencies]
+thiserror.workspace = true
+serde.workspace = true
+bytemuck.workspace = true
+glam.workspace = true
+num-rational.workspace = true
+smallvec.workspace = true
+
+[dev-dependencies]
+proptest = "1.4"

@@ -1,0 +1,16 @@
+[package]
+name = "proedit-ai"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "AI features for ProEdit Studio"
+
+[dependencies]
+proedit-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+# ONNX Runtime for AI models (optional, add when needed)
+# ort = "2.0"
