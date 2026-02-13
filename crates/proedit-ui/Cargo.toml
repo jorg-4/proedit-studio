@@ -9,4 +9,5 @@ description = "UI widgets for ProEdit Studio"
 proedit-core.workspace = true
 proedit-timeline.workspace = true
 egui.workspace = true
+egui_dock.workspace = true
 serde.workspace = true

@@ -5,7 +5,36 @@
 //! - Video viewport
 //! - Properties inspector
 //! - Media browser
+//! - Effects panel
+//! - Command palette
+//! - Color wheels
+//! - Audio mixer
 
+pub mod anim;
+pub mod audio_mixer;
+pub mod color_wheels;
+pub mod command_palette;
+pub mod effects_panel;
+pub mod inspector;
+pub mod media_browser;
+pub mod theme;
+pub mod timeline;
+pub mod top_bar;
+pub mod viewer;
+
+// Re-exports for main app convenience
+pub use audio_mixer::{show_audio_mixer, AudioMixerState};
+pub use color_wheels::{show_color_wheels, ColorWheelsState};
+pub use command_palette::{show_command_palette, CommandPaletteState};
+pub use effects_panel::{show_effects_panel, EffectsPanelState};
+pub use inspector::{show_inspector, InspectorClip, InspectorState};
+pub use media_browser::{show_media_browser, MediaBrowserState};
+pub use theme::Theme;
+pub use timeline::{show_timeline, TimelineState};
+pub use top_bar::{show_top_bar, LeftTab, Page, TopBarAction, TopBarState};
+pub use viewer::{show_viewer, ViewerState};
+
+// Keep the original types for backwards compatibility with existing code
 use egui::Ui;
 use proedit_core::{FrameRate, RationalTime};
 use proedit_timeline::Sequence;
@@ -102,12 +131,12 @@ impl TransportControls {
     pub fn show(&mut self, ui: &mut Ui, playhead: &mut RationalTime) {
         ui.horizontal(|ui| {
             // Rewind button
-            if ui.button("⏮").clicked() {
+            if ui.button("\u{23EE}").clicked() {
                 *playhead = RationalTime::ZERO;
             }
 
             // Play/Pause button
-            let play_text = if self.playing { "⏸" } else { "▶" };
+            let play_text = if self.playing { "\u{23F8}" } else { "\u{25B6}" };
             if ui.button(play_text).clicked() {
                 self.playing = !self.playing;
             }
