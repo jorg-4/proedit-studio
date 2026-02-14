@@ -5,15 +5,38 @@
 //! - Audio transcription (whisper.cpp sidecar)
 //! - Filler word and silence detection
 //! - Frame interpolation for AI slow motion (RIFE via ONNX, requires `onnx` feature)
+//! - AI upscaling (Real-ESRGAN via ONNX, requires `onnx` feature)
+//! - Auto-rotoscoping / intelligent masking (SAM 2)
+//! - Audio stem separation (Demucs v4)
+//! - Speaker diarization
+//! - Visual content indexing (CLIP embeddings) and natural language search
+//! - Audio classification and quality detection
+//! - Smart reframing for multi-platform export
+//! - Narrative intelligence (cloud, opt-in)
+//! - Auto-edit from text prompt (cloud, opt-in)
+//! - Style learning (local editor profile)
+//! - Background analysis ingest pipeline
 //! - Model download and cache management
 
+pub mod analysis_store;
+pub mod audio_classify;
+pub mod auto_edit;
+pub mod content_index;
 pub mod error;
 pub mod filler_detect;
+pub mod ingest_pipeline;
 pub mod interpolation;
 pub mod model_manager;
+pub mod narrative;
+pub mod reframe;
+pub mod rotoscope;
 pub mod scene_detect;
 pub mod session;
+pub mod speaker_diarize;
+pub mod stem_separation;
+pub mod style_learning;
 pub mod transcribe;
+pub mod upscale;
 
 pub use error::{AiError, AiResult};
 pub use model_manager::{ModelId, ModelManager};

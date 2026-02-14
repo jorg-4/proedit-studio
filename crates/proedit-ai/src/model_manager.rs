@@ -39,6 +39,12 @@ pub enum ModelId {
     SpeakerDiarize,
     /// CLIP ViT-B/32 embedding model.
     CLIPViTB32,
+    /// SAM 2 ViT-H high-quality segmentation model (optional).
+    SAM2ViTH,
+    /// Lightweight face detection model.
+    FaceDetector,
+    /// Audio event classifier (AudioSet categories).
+    AudioClassifier,
 }
 
 impl ModelId {
@@ -102,6 +108,27 @@ impl ModelId {
                 sha256: "placeholder_hash",
                 size_bytes: 400_000_000,
             },
+            Self::SAM2ViTH => ModelSpec {
+                id: *self,
+                filename: "sam2_vit_h.onnx",
+                url: "https://huggingface.co/proedit/models/resolve/main/sam2_vit_h.onnx",
+                sha256: "placeholder_hash",
+                size_bytes: 2_500_000_000,
+            },
+            Self::FaceDetector => ModelSpec {
+                id: *self,
+                filename: "face_detector.onnx",
+                url: "https://huggingface.co/proedit/models/resolve/main/face_detector.onnx",
+                sha256: "placeholder_hash",
+                size_bytes: 5_000_000,
+            },
+            Self::AudioClassifier => ModelSpec {
+                id: *self,
+                filename: "audio_classifier.onnx",
+                url: "https://huggingface.co/proedit/models/resolve/main/audio_classifier.onnx",
+                sha256: "placeholder_hash",
+                size_bytes: 20_000_000,
+            },
         }
     }
 
@@ -116,6 +143,9 @@ impl ModelId {
             Self::DemucsV4 => "300 MB",
             Self::SpeakerDiarize => "150 MB",
             Self::CLIPViTB32 => "400 MB",
+            Self::SAM2ViTH => "2.5 GB",
+            Self::FaceDetector => "5 MB",
+            Self::AudioClassifier => "20 MB",
         }
     }
 }
@@ -187,6 +217,9 @@ mod tests {
             ModelId::DemucsV4,
             ModelId::SpeakerDiarize,
             ModelId::CLIPViTB32,
+            ModelId::SAM2ViTH,
+            ModelId::FaceDetector,
+            ModelId::AudioClassifier,
         ];
         for model in models {
             let spec = model.spec();
@@ -222,10 +255,16 @@ mod tests {
             ModelId::DemucsV4,
             ModelId::SpeakerDiarize,
             ModelId::CLIPViTB32,
+            ModelId::SAM2ViTH,
+            ModelId::FaceDetector,
+            ModelId::AudioClassifier,
         ];
         for model in models {
             let size = model.size_human();
-            assert!(size.contains("MB"), "Size should contain 'MB', got: {size}");
+            assert!(
+                size.contains("MB") || size.contains("GB"),
+                "Size should contain 'MB' or 'GB', got: {size}"
+            );
         }
     }
 }

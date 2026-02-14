@@ -4,10 +4,11 @@
 //! consecutive frames. Works without any ONNX model — pure math.
 
 use proedit_core::FrameBuffer;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 /// A detected scene boundary.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SceneBoundary {
     /// Frame number where the scene change occurs.
     pub frame_number: i64,
@@ -20,7 +21,7 @@ pub struct SceneBoundary {
 }
 
 /// Type of scene transition.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum TransitionType {
     /// Abrupt scene change.
     HardCut,
@@ -31,6 +32,7 @@ pub enum TransitionType {
 }
 
 /// Configuration for scene detection.
+#[derive(Debug, Clone)]
 pub struct SceneDetectConfig {
     /// Mean absolute difference threshold for hard cuts (default: 0.5).
     pub hard_cut_threshold: f32,

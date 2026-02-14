@@ -36,6 +36,18 @@ pub enum AiError {
     /// Model not loaded — call load_model() first.
     #[error("Model not loaded — call load_model() first")]
     ModelNotLoaded,
+
+    /// Cloud API error.
+    #[error("Cloud API error: {0}")]
+    CloudApiError(String),
+
+    /// Serialization/deserialization error.
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
+
+    /// Pipeline error.
+    #[error("Pipeline error: {0}")]
+    PipelineError(String),
 }
 
 /// Result type alias for AI operations.
