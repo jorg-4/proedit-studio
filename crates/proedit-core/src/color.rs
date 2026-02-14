@@ -147,10 +147,10 @@ impl TransferFunction {
             }
             Self::Pq => {
                 // Simplified PQ EOTF
-                let m1 = 0.1593017578125;
+                let m1 = 0.159_301_76_f32;
                 let m2 = 78.84375;
                 let c1 = 0.8359375;
-                let c2 = 18.8515625;
+                let c2 = 18.851_563_f32;
                 let c3 = 18.6875;
                 let y = linear.max(0.0);
                 let num = c1 + c2 * y.powf(m1);
@@ -161,7 +161,7 @@ impl TransferFunction {
                 // Simplified HLG OETF
                 let a = 0.17883277;
                 let b = 0.28466892;
-                let c = 0.55991073;
+                let c = 0.559_910_7_f32;
                 if linear <= 1.0 / 12.0 {
                     (3.0 * linear).sqrt()
                 } else {

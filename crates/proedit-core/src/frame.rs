@@ -11,9 +11,10 @@ use std::sync::Arc;
 pub struct FrameId(pub u64);
 
 /// Pixel format enumeration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum PixelFormat {
     /// 8-bit RGBA (32 bits per pixel)
+    #[default]
     Rgba8,
     /// 16-bit RGBA half-float (64 bits per pixel)
     Rgba16F,
@@ -83,11 +84,6 @@ impl PixelFormat {
     }
 }
 
-impl Default for PixelFormat {
-    fn default() -> Self {
-        Self::Rgba8
-    }
-}
 
 /// A plane of pixel data with stride information.
 #[derive(Debug, Clone)]

@@ -49,6 +49,11 @@ impl VideoDecoder {
         })
     }
 
+    /// Get the file path.
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
     /// Get the video dimensions.
     pub fn dimensions(&self) -> (u32, u32) {
         (self.width, self.height)
