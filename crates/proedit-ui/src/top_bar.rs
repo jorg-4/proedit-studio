@@ -1,0 +1,290 @@
+//! Custom 40 px top bar with traffic lights, tabs, page navigation and tool buttons.
+
+use egui::{self, Color32, Rounding, Sense, Stroke, Ui, Vec2};
+use crate::theme::Theme;
+
+// ── Pages ──────────────────────────────────────────────────────
+
+/// The six editor pages shown in the centre navigation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Page {
+    Cut,
+    Edit,
+    Motion,
+    Color,
+    Audio,
+    Deliver,
+}
+
+impl Page {
+    pub const ALL: [Page; 6] = [
+        Page::Cut, Page::Edit, Page::Motion, Page::Color, Page::Audio, Page::Deliver,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Page::Cut     => "Cut",
+            Page::Edit    => "Edit",
+            Page::Motion  => "Motion",
+            Page::Color   => "Color",
+            Page::Audio   => "Audio",
+            Page::Deliver => "Deliver",
+        }
+    }
+
+    pub fn icon(self) -> &'static str {
+        match self {
+            Page::Cut     => "\u{2702}",  // ✂
+            Page::Edit    => "\u{25AC}",  // ▬
+            Page::Motion  => "\u{25C7}",  // ◇
+            Page::Color   => "\u{25D0}",  // ◐
+            Page::Audio   => "\u{266A}",  // ♪
+            Page::Deliver => "\u{2197}",  // ↗
+        }
+    }
+}
+
+// ── Left tabs ──────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LeftTab {
+    Media,
+    Effects,
+}
+
+impl LeftTab {
+    pub const ALL: [LeftTab; 2] = [LeftTab::Media, LeftTab::Effects];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            LeftTab::Media   => "Media",
+            LeftTab::Effects => "Effects",
+        }
+    }
+
+    pub fn icon(self) -> &'static str {
+        match self {
+            LeftTab::Media   => "\u{229E}",  // ⊞
+            LeftTab::Effects => "\u{2726}",  // ✦
+        }
+    }
+}
+
+// ── Actions returned from top bar ──────────────────────────────
+
+#[derive(Debug, Clone)]
+pub enum TopBarAction {
+    PageChanged(Page),
+    LeftTabChanged(LeftTab),
+    ToggleInspector,
+    ToggleColorWheels,
+    ToggleAudioMixer,
+    OpenCommandPalette,
+}
+
+// ── State ──────────────────────────────────────────────────────
+
+pub struct TopBarState {
+    pub active_page: Page,
+    pub left_tab: LeftTab,
+    pub inspector_open: bool,
+    pub color_wheels_open: bool,
+    pub audio_mixer_open: bool,
+}
+
+impl Default for TopBarState {
+    fn default() -> Self {
+        Self {
+            active_page: Page::Edit,
+            left_tab: LeftTab::Media,
+            inspector_open: true,
+            color_wheels_open: false,
+            audio_mixer_open: false,
+        }
+    }
+}
+
+// ── Rendering ──────────────────────────────────────────────────
+
+pub struct TopBarResponse {
+    pub actions: Vec<TopBarAction>,
+}
+
+/// Show the top bar and return any actions.
+pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
+    let mut actions = Vec::new();
+    let height = 40.0;
+
+    ui.set_min_height(height);
+    ui.set_max_height(height);
+
+    ui.horizontal_centered(|ui| {
+        ui.spacing_mut().item_spacing = Vec2::new(8.0, 0.0);
+
+        // ── Traffic lights ─────────────────────────────────
+        let tl_colors = [
+            Color32::from_rgb(255, 95, 87),
+            Color32::from_rgb(255, 189, 46),
+            Color32::from_rgb(39, 201, 63),
+        ];
+        for color in &tl_colors {
+            let (resp, painter) = ui.allocate_painter(Vec2::splat(12.0), Sense::hover());
+            let center = resp.rect.center();
+            painter.circle_filled(center, 6.0, *color);
+            painter.circle_stroke(center, 6.0, Stroke::new(0.5, Theme::with_alpha(*color, 85)));
+        }
+
+        ui.add_space(8.0);
+
+        // ── Logo ───────────────────────────────────────────
+        ui.label(
+            egui::RichText::new("ProEdit")
+                .color(Theme::t1())
+                .size(14.0)
+                .strong(),
+        );
+        ui.label(
+            egui::RichText::new("Studio")
+                .color(Theme::t3())
+                .size(14.0),
+        );
+
+        ui.add_space(12.0);
+
+        // ── Left panel tabs ────────────────────────────────
+        let tab_frame = egui::Frame::none()
+            .fill(Color32::from_rgba_premultiplied(2, 2, 2, 8))
+            .rounding(Rounding::same(8.0))
+            .inner_margin(egui::Margin::same(2.0));
+
+        tab_frame.show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing = Vec2::new(2.0, 0.0);
+                for tab in LeftTab::ALL {
+                    let is_active = state.left_tab == tab;
+                    let text_color = if is_active { Theme::accent() } else { Theme::t3() };
+                    let bg = if is_active { Theme::accent_subtle() } else { Color32::TRANSPARENT };
+
+                    let btn = egui::Frame::none()
+                        .fill(bg)
+                        .rounding(Rounding::same(6.0))
+                        .inner_margin(egui::Margin::symmetric(8.0, 3.0));
+
+                    let resp = btn.show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
+                            ui.label(egui::RichText::new(tab.icon()).size(10.0).color(text_color));
+                            ui.label(egui::RichText::new(tab.label()).size(10.0).color(text_color));
+                        });
+                    }).response;
+
+                    if resp.clicked() && !is_active {
+                        state.left_tab = tab;
+                        actions.push(TopBarAction::LeftTabChanged(tab));
+                    }
+                }
+            });
+        });
+
+        // ── Spacer to centre pages ────────────────────────
+        ui.add_space(ui.available_width() * 0.1);
+
+        // ── Page navigation ────────────────────────────────
+        let nav_frame = egui::Frame::none()
+            .fill(Color32::from_rgba_premultiplied(2, 2, 2, 6))
+            .rounding(Rounding::same(9.0))
+            .inner_margin(egui::Margin::same(2.0));
+
+        nav_frame.show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing = Vec2::new(2.0, 0.0);
+                for page in Page::ALL {
+                    let is_active = state.active_page == page;
+                    let text_color = if is_active { Theme::accent() } else { Theme::t3() };
+                    let bg = if is_active { Theme::accent_subtle() } else { Color32::TRANSPARENT };
+
+                    let btn = egui::Frame::none()
+                        .fill(bg)
+                        .rounding(Rounding::same(7.0))
+                        .inner_margin(egui::Margin::symmetric(12.0, 4.0));
+
+                    let resp = btn.show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
+                            ui.label(egui::RichText::new(page.icon()).size(10.5).color(text_color));
+                            ui.label(
+                                egui::RichText::new(page.label())
+                                    .size(10.5)
+                                    .color(text_color),
+                            );
+                        });
+                    }).response;
+
+                    if resp.clicked() && !is_active {
+                        state.active_page = page;
+                        actions.push(TopBarAction::PageChanged(page));
+                    }
+                }
+            });
+        });
+
+        // ── Spacer ─────────────────────────────────────────
+        ui.add_space(ui.available_width() - 160.0_f32.max(0.0));
+
+        // ── Right tool buttons ─────────────────────────────
+        struct ToolBtn {
+            icon: &'static str,
+            active: bool,
+        }
+
+        let tools = [
+            ToolBtn { icon: "\u{2318}K", active: false },        // ⌘K
+            ToolBtn { icon: "\u{25D0}", active: state.color_wheels_open },  // ◐
+            ToolBtn { icon: "\u{266A}", active: state.audio_mixer_open },   // ♪
+            ToolBtn { icon: "\u{25A4}", active: state.inspector_open },     // ▤
+        ];
+
+        for (i, tool) in tools.iter().enumerate() {
+            let text_color = if tool.active { Theme::accent() } else { Theme::t3() };
+            let bg = if tool.active { Theme::accent_subtle() } else { Color32::TRANSPARENT };
+
+            let btn = egui::Frame::none()
+                .fill(bg)
+                .rounding(Rounding::same(8.0))
+                .inner_margin(egui::Margin::symmetric(6.0, 4.0));
+
+            let resp = btn.show(ui, |ui| {
+                let size = Vec2::new(30.0, 28.0);
+                let (r, _p) = ui.allocate_painter(size, Sense::hover());
+                ui.painter().text(
+                    r.rect.center(),
+                    egui::Align2::CENTER_CENTER,
+                    tool.icon,
+                    egui::FontId::proportional(11.0),
+                    text_color,
+                );
+            }).response;
+
+            if resp.clicked() {
+                match i {
+                    0 => actions.push(TopBarAction::OpenCommandPalette),
+                    1 => {
+                        state.color_wheels_open = !state.color_wheels_open;
+                        actions.push(TopBarAction::ToggleColorWheels);
+                    }
+                    2 => {
+                        state.audio_mixer_open = !state.audio_mixer_open;
+                        actions.push(TopBarAction::ToggleAudioMixer);
+                    }
+                    3 => {
+                        state.inspector_open = !state.inspector_open;
+                        actions.push(TopBarAction::ToggleInspector);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    });
+
+    TopBarResponse { actions }
+}

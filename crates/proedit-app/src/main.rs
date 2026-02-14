@@ -1,37 +1,39 @@
 //! ProEdit Studio - Professional Video Editor
 //!
 //! Entry point and main application loop.
+//! Liquid Glass iOS 26 dark aesthetic.
 
 use anyhow::Result;
 use eframe::egui;
 use proedit_core::{FrameBuffer, FrameRate, RationalTime};
 use proedit_media::VideoDecoder;
 use proedit_timeline::{Project, Sequence};
-use proedit_ui::{TimelineWidget, TransportControls};
+use proedit_ui::{
+    show_audio_mixer, show_color_wheels, show_command_palette, show_effects_panel,
+    show_inspector, show_media_browser, show_timeline, show_top_bar, show_viewer,
+    AudioMixerState, ColorWheelsState, CommandPaletteState, EffectsPanelState, InspectorState,
+    LeftTab, MediaBrowserState, Theme, TimelineState, TopBarState, ViewerState,
+};
 use std::path::PathBuf;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 fn main() -> Result<()> {
-    // Initialize logging
     let subscriber = FmtSubscriber::builder()
         .with_max_level(Level::INFO)
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
     info!("ProEdit Studio starting...");
-
-    // Initialize media subsystem
     proedit_media::init();
 
-    // Parse command line for video file
     let video_path = std::env::args().nth(1).map(PathBuf::from);
 
-    // Run the application
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 720.0])
-            .with_title("ProEdit Studio"),
+            .with_inner_size([1440.0, 900.0])
+            .with_title("ProEdit Studio")
+            .with_decorations(false),
         renderer: eframe::Renderer::Wgpu,
         ..Default::default()
     };
@@ -46,20 +48,35 @@ fn main() -> Result<()> {
 }
 
 struct ProEditApp {
+    // Core
+    #[allow(dead_code)]
     project: Project,
     decoder: Option<VideoDecoder>,
     current_frame: Option<FrameBuffer>,
     playhead: RationalTime,
     playing: bool,
+    speed: f32,
     last_frame_time: std::time::Instant,
-    timeline_widget: TimelineWidget,
-    transport: TransportControls,
+    start_time: std::time::Instant,
     frame_number: i64,
+
+    // UI state
+    top_bar: TopBarState,
+    timeline: TimelineState,
+    viewer: ViewerState,
+    inspector: InspectorState,
+    media_browser: MediaBrowserState,
+    effects_panel: EffectsPanelState,
+    command_palette: CommandPaletteState,
+    color_wheels: ColorWheelsState,
+    audio_mixer: AudioMixerState,
 }
 
 impl ProEditApp {
-    fn new(_cc: &eframe::CreationContext<'_>, video_path: Option<PathBuf>) -> Self {
-        // Try to open the video file
+    fn new(cc: &eframe::CreationContext<'_>, video_path: Option<PathBuf>) -> Self {
+        // Apply the Liquid Glass theme
+        Theme::apply(&cc.egui_ctx);
+
         let decoder = video_path.and_then(|path| {
             if path.exists() {
                 match VideoDecoder::open(&path) {
@@ -78,7 +95,6 @@ impl ProEditApp {
             }
         });
 
-        // Create default project
         let mut project = Project::new("New Project");
         project.add_sequence(Sequence::default());
 
@@ -88,10 +104,19 @@ impl ProEditApp {
             current_frame: None,
             playhead: RationalTime::ZERO,
             playing: false,
+            speed: 1.0,
             last_frame_time: std::time::Instant::now(),
-            timeline_widget: TimelineWidget::new(),
-            transport: TransportControls::default(),
+            start_time: std::time::Instant::now(),
             frame_number: 0,
+            top_bar: TopBarState::default(),
+            timeline: TimelineState::default(),
+            viewer: ViewerState::default(),
+            inspector: InspectorState::default(),
+            media_browser: MediaBrowserState::default(),
+            effects_panel: EffectsPanelState::default(),
+            command_palette: CommandPaletteState::default(),
+            color_wheels: ColorWheelsState::default(),
+            audio_mixer: AudioMixerState::default(),
         }
     }
 
@@ -114,7 +139,6 @@ impl ProEditApp {
                 }
             }
         } else {
-            // Generate test pattern
             self.current_frame = Some(FrameBuffer::test_pattern(1920, 1080));
             self.frame_number += 1;
             true
@@ -127,191 +151,180 @@ impl ProEditApp {
             .map(|d| d.frame_rate())
             .unwrap_or(FrameRate::FPS_24)
     }
+
+    fn handle_keyboard(&mut self, ctx: &egui::Context) {
+        // Don't handle keys if command palette is open (it handles its own)
+        if self.command_palette.open {
+            return;
+        }
+
+        ctx.input(|inp| {
+            // Space — toggle play/pause
+            if inp.key_pressed(egui::Key::Space) {
+                self.playing = !self.playing;
+            }
+            // J — play reverse (speed -= 1)
+            if inp.key_pressed(egui::Key::J) {
+                self.speed -= 1.0;
+                self.playing = true;
+            }
+            // K — stop, reset speed
+            if inp.key_pressed(egui::Key::K) {
+                self.playing = false;
+                self.speed = 1.0;
+            }
+            // L — play forward (speed += 1)
+            if inp.key_pressed(egui::Key::L) {
+                self.speed += 1.0;
+                self.playing = true;
+            }
+            // ArrowLeft — step back 1 frame
+            if inp.key_pressed(egui::Key::ArrowLeft) {
+                self.timeline.playhead = (self.timeline.playhead - 1.0).max(0.0);
+            }
+            // ArrowRight — step forward 1 frame
+            if inp.key_pressed(egui::Key::ArrowRight) {
+                self.timeline.playhead += 1.0;
+            }
+            // M — add marker at playhead
+            if inp.key_pressed(egui::Key::M) {
+                self.timeline.markers.push(proedit_ui::timeline::Marker {
+                    frame: self.timeline.playhead,
+                    color: Theme::amber(),
+                });
+            }
+            // I — toggle inspector
+            if inp.key_pressed(egui::Key::I) {
+                self.top_bar.inspector_open = !self.top_bar.inspector_open;
+            }
+            // +/= — zoom in
+            if inp.key_pressed(egui::Key::Plus) || inp.key_pressed(egui::Key::Equals) {
+                self.timeline.zoom = (self.timeline.zoom + 0.2).min(3.0);
+            }
+            // - — zoom out
+            if inp.key_pressed(egui::Key::Minus) {
+                self.timeline.zoom = (self.timeline.zoom - 0.2).max(0.4);
+            }
+            // Escape — close overlays
+            if inp.key_pressed(egui::Key::Escape) {
+                self.command_palette.open = false;
+            }
+        });
+
+        // ⌘K — command palette (check modifiers separately)
+        ctx.input(|inp| {
+            if inp.modifiers.command && inp.key_pressed(egui::Key::K) {
+                self.command_palette.toggle();
+            }
+        });
+    }
 }
 
 impl eframe::App for ProEditApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Handle playback
+        let time = self.start_time.elapsed().as_secs_f64();
+
+        // ── Playback ───────────────────────────────────────────
         if self.playing {
             let frame_duration =
-                std::time::Duration::from_secs_f64(1.0 / self.frame_rate().to_fps_f64());
+                std::time::Duration::from_secs_f64(1.0 / (self.frame_rate().to_fps_f64() * self.speed.abs() as f64));
 
             if self.last_frame_time.elapsed() >= frame_duration {
                 self.decode_next_frame();
                 self.playhead = self.playhead + self.frame_rate().frame_duration();
+                self.timeline.playhead += self.speed;
                 self.last_frame_time = std::time::Instant::now();
             }
             ctx.request_repaint();
         }
 
-        // Decode first frame if we haven't yet
         if self.current_frame.is_none() {
             self.decode_next_frame();
         }
 
-        // Menu bar
-        egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("New Project").clicked() {
-                        self.project = Project::new("New Project");
-                        self.project.add_sequence(Sequence::default());
-                        ui.close_menu();
-                    }
-                    if ui.button("Open...").clicked() {
-                        info!("Open clicked");
-                        ui.close_menu();
-                    }
-                    if ui.button("Save").clicked() {
-                        info!("Save clicked");
-                        ui.close_menu();
-                    }
-                    ui.separator();
-                    if ui.button("Quit").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                });
-                ui.menu_button("Edit", |ui| {
-                    if ui.button("Undo").clicked() {
-                        info!("Undo clicked");
-                        ui.close_menu();
-                    }
-                    if ui.button("Redo").clicked() {
-                        info!("Redo clicked");
-                        ui.close_menu();
-                    }
-                });
-                ui.menu_button("Help", |ui| {
-                    if ui.button("About").clicked() {
-                        info!("ProEdit Studio v0.1.0");
-                        ui.close_menu();
-                    }
-                });
-            });
-        });
+        // ── Keyboard shortcuts ─────────────────────────────────
+        self.handle_keyboard(ctx);
 
-        // Timeline at bottom
+        // ── Sync viewer state ──────────────────────────────────
+        self.viewer.playing = self.playing;
+        self.viewer.playhead_frames = self.timeline.playhead;
+        self.viewer.speed = self.speed;
+        self.viewer.selected_clip = self.timeline.selected_clip;
+
+        // ── Top bar ────────────────────────────────────────────
+        egui::TopBottomPanel::top("top_bar")
+            .exact_height(40.0)
+            .frame(Theme::top_bar_frame())
+            .show(ctx, |ui| {
+                let response = show_top_bar(ui, &mut self.top_bar);
+                for action in response.actions {
+                    if let proedit_ui::TopBarAction::OpenCommandPalette = action {
+                        self.command_palette.toggle();
+                    }
+                }
+            });
+
+        // ── Timeline at bottom ─────────────────────────────────
         egui::TopBottomPanel::bottom("timeline_panel")
             .resizable(true)
-            .min_height(100.0)
-            .default_height(200.0)
+            .min_height(120.0)
+            .default_height(260.0)
+            .frame(egui::Frame::none().fill(Theme::bg()))
             .show(ctx, |ui| {
-                ui.heading("Timeline");
-                let sequence = self.project.active_sequence();
-                self.timeline_widget.playhead = self.playhead;
-                self.timeline_widget.show(ui, sequence);
+                let _actions = show_timeline(ui, &mut self.timeline);
             });
 
-        // Media browser on left
-        egui::SidePanel::left("media_panel")
+        // ── Left panel (Media / Effects) ───────────────────────
+        egui::SidePanel::left("left_panel")
             .resizable(true)
-            .default_width(200.0)
+            .default_width(220.0)
+            .min_width(180.0)
+            .frame(egui::Frame::none().fill(Theme::bg1()).inner_margin(egui::Margin::same(8.0)))
             .show(ctx, |ui| {
-                ui.heading("Media Browser");
-                ui.separator();
-                ui.label("Drag media files here to import");
-                if ui.button("Import Media...").clicked() {
-                    info!("Import media clicked");
+                match self.top_bar.left_tab {
+                    LeftTab::Media => show_media_browser(ui, &mut self.media_browser),
+                    LeftTab::Effects => show_effects_panel(ui, &mut self.effects_panel),
                 }
             });
 
-        // Inspector on right
-        egui::SidePanel::right("inspector_panel")
-            .resizable(true)
-            .default_width(250.0)
-            .show(ctx, |ui| {
-                ui.heading("Inspector");
-                ui.separator();
-                if let Some(ref decoder) = self.decoder {
-                    ui.label(format!(
-                        "Resolution: {}x{}",
-                        decoder.dimensions().0,
-                        decoder.dimensions().1
-                    ));
-                    ui.label(format!("Frame Rate: {}", decoder.frame_rate()));
-                    ui.label(format!("Duration: {:.2}s", decoder.duration()));
-                } else {
-                    ui.label("No media selected");
-                }
+        // ── Right panel (Inspector) ────────────────────────────
+        if self.top_bar.inspector_open {
+            egui::SidePanel::right("inspector_panel")
+                .resizable(true)
+                .default_width(240.0)
+                .min_width(200.0)
+                .frame(egui::Frame::none().fill(Theme::bg1()).inner_margin(egui::Margin::same(8.0)))
+                .show(ctx, |ui| {
+                    show_inspector(ui, &mut self.inspector);
+                });
+        }
 
-                ui.separator();
-                ui.heading("Project");
-                ui.label(format!("Name: {}", self.project.name));
-                if let Some(seq) = self.project.active_sequence() {
-                    ui.label(format!("Sequence: {}", seq.name));
-                    ui.label(format!("Resolution: {}x{}", seq.width, seq.height));
+        // ── Central viewport ───────────────────────────────────
+        egui::CentralPanel::default()
+            .frame(egui::Frame::none().fill(Theme::bg()))
+            .show(ctx, |ui| {
+                let viewer_actions = show_viewer(ui, &self.viewer, time);
+                for action in viewer_actions {
+                    match action {
+                        proedit_ui::viewer::ViewerAction::TogglePlay => {
+                            self.playing = !self.playing;
+                        }
+                        proedit_ui::viewer::ViewerAction::SetSpeed(s) => {
+                            self.speed = s;
+                        }
+                    }
                 }
             });
 
-        // Central viewport
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // Transport controls
-            self.transport.playing = self.playing;
-            self.transport.show(ui, &mut self.playhead);
-            self.playing = self.transport.playing;
+        // ── Floating panels ────────────────────────────────────
+        if self.top_bar.color_wheels_open {
+            show_color_wheels(ctx, &mut self.color_wheels, time);
+        }
+        if self.top_bar.audio_mixer_open {
+            show_audio_mixer(ctx, &mut self.audio_mixer);
+        }
 
-            ui.separator();
-
-            // Video frame display
-            let (response, painter) = ui.allocate_painter(ui.available_size(), egui::Sense::click());
-            let rect = response.rect;
-
-            // Background
-            painter.rect_filled(rect, 0.0, egui::Color32::from_rgb(20, 20, 20));
-
-            // Frame info and preview
-            if let Some(ref frame) = self.current_frame {
-                // Draw simplified color bars preview
-                let preview_size = egui::vec2(
-                    (rect.width() * 0.6).min(640.0),
-                    (rect.height() * 0.6).min(360.0),
-                );
-                let preview_rect = egui::Rect::from_center_size(rect.center(), preview_size);
-
-                // Color bars
-                let bar_width = preview_rect.width() / 8.0;
-                let colors = [
-                    egui::Color32::WHITE,
-                    egui::Color32::YELLOW,
-                    egui::Color32::from_rgb(0, 255, 255),
-                    egui::Color32::GREEN,
-                    egui::Color32::from_rgb(255, 0, 255),
-                    egui::Color32::RED,
-                    egui::Color32::BLUE,
-                    egui::Color32::BLACK,
-                ];
-                for (i, color) in colors.iter().enumerate() {
-                    let bar_rect = egui::Rect::from_min_size(
-                        egui::pos2(preview_rect.left() + i as f32 * bar_width, preview_rect.top()),
-                        egui::vec2(bar_width, preview_rect.height()),
-                    );
-                    painter.rect_filled(bar_rect, 0.0, *color);
-                }
-
-                // Frame info below preview
-                let info = format!(
-                    "Frame {} | {}x{} | {}",
-                    self.frame_number,
-                    frame.width,
-                    frame.height,
-                    self.frame_rate()
-                );
-                painter.text(
-                    egui::pos2(rect.center().x, preview_rect.bottom() + 20.0),
-                    egui::Align2::CENTER_TOP,
-                    info,
-                    egui::FontId::proportional(14.0),
-                    egui::Color32::WHITE,
-                );
-            } else {
-                painter.text(
-                    rect.center(),
-                    egui::Align2::CENTER_CENTER,
-                    "No video loaded\nUse File > Open to load a video",
-                    egui::FontId::proportional(16.0),
-                    egui::Color32::GRAY,
-                );
-            }
-        });
+        // ── Command palette (must be last — topmost layer) ─────
+        show_command_palette(ctx, &mut self.command_palette);
     }
 }
