@@ -108,7 +108,7 @@ pub struct StemSeparationConfig {
 impl Default for StemSeparationConfig {
     fn default() -> Self {
         Self {
-            chunk_size: 308_700,  // ~7s at 44.1kHz
+            chunk_size: 308_700, // ~7s at 44.1kHz
             overlap: 44_100,     // ~1s at 44.1kHz
         }
     }
@@ -156,10 +156,7 @@ impl StemSeparator {
 
     /// Load the ONNX model for stem separation.
     #[cfg(feature = "onnx")]
-    pub fn load(
-        model_path: &std::path::Path,
-        config: StemSeparationConfig,
-    ) -> AiResult<Self> {
+    pub fn load(model_path: &std::path::Path, config: StemSeparationConfig) -> AiResult<Self> {
         if !model_path.exists() {
             return Err(AiError::ModelNotFound {
                 model_id: format!("{:?}", crate::model_manager::ModelId::DemucsV4),
@@ -242,7 +239,11 @@ fn cpu_frequency_separate(chunk: &[f32], _sample_rate: u32, channels: usize) -> 
             low_sum += chunk[j];
             count += 1;
         }
-        let low = if count > 0 { low_sum / count as f32 } else { 0.0 };
+        let low = if count > 0 {
+            low_sum / count as f32
+        } else {
+            0.0
+        };
         let high = chunk[i] - low;
 
         // Crude stem assignment:
@@ -352,9 +353,7 @@ mod tests {
     #[test]
     fn test_stems_sum_approximately_to_original() {
         // The CPU fallback should roughly reconstruct the original signal
-        let samples: Vec<f32> = (0..8820)
-            .map(|i| (i as f32 * 0.01).sin() * 0.5)
-            .collect();
+        let samples: Vec<f32> = (0..8820).map(|i| (i as f32 * 0.01).sin() * 0.5).collect();
         let audio = AudioBuffer::from_samples(samples.clone(), 44100, 1);
         let separator = StemSeparator::new(StemSeparationConfig {
             chunk_size: 4410,
@@ -363,16 +362,15 @@ mod tests {
         let stems = separator.separate(&audio).unwrap();
 
         // Check that stems sum approximately to the original
-        for i in 0..samples.len() {
+        for (i, &orig) in samples.iter().enumerate() {
             let sum = stems.vocals.samples[i]
                 + stems.drums.samples[i]
                 + stems.bass.samples[i]
                 + stems.other.samples[i];
-            let diff = (sum - samples[i]).abs();
+            let diff = (sum - orig).abs();
             assert!(
                 diff < 0.5,
-                "Stem sum should approximate original at sample {i}: sum={sum}, orig={}",
-                samples[i]
+                "Stem sum should approximate original at sample {i}: sum={sum}, orig={orig}",
             );
         }
     }

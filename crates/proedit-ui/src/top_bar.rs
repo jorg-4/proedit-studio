@@ -1,7 +1,7 @@
 //! Custom 40 px top bar with traffic lights, tabs, page navigation and tool buttons.
 
-use egui::{self, Color32, Rounding, Sense, Stroke, Ui, Vec2};
 use crate::theme::Theme;
+use egui::{self, Color32, Rounding, Sense, Stroke, Ui, Vec2};
 
 // ── Pages ──────────────────────────────────────────────────────
 
@@ -18,28 +18,33 @@ pub enum Page {
 
 impl Page {
     pub const ALL: [Page; 6] = [
-        Page::Cut, Page::Edit, Page::Motion, Page::Color, Page::Audio, Page::Deliver,
+        Page::Cut,
+        Page::Edit,
+        Page::Motion,
+        Page::Color,
+        Page::Audio,
+        Page::Deliver,
     ];
 
     pub fn label(self) -> &'static str {
         match self {
-            Page::Cut     => "Cut",
-            Page::Edit    => "Edit",
-            Page::Motion  => "Motion",
-            Page::Color   => "Color",
-            Page::Audio   => "Audio",
+            Page::Cut => "Cut",
+            Page::Edit => "Edit",
+            Page::Motion => "Motion",
+            Page::Color => "Color",
+            Page::Audio => "Audio",
             Page::Deliver => "Deliver",
         }
     }
 
     pub fn icon(self) -> &'static str {
         match self {
-            Page::Cut     => "\u{2702}",  // ✂
-            Page::Edit    => "\u{25AC}",  // ▬
-            Page::Motion  => "\u{25C7}",  // ◇
-            Page::Color   => "\u{25D0}",  // ◐
-            Page::Audio   => "\u{266A}",  // ♪
-            Page::Deliver => "\u{2197}",  // ↗
+            Page::Cut => "\u{2702}",     // ✂
+            Page::Edit => "\u{25AC}",    // ▬
+            Page::Motion => "\u{25C7}",  // ◇
+            Page::Color => "\u{25D0}",   // ◐
+            Page::Audio => "\u{266A}",   // ♪
+            Page::Deliver => "\u{2197}", // ↗
         }
     }
 }
@@ -57,15 +62,15 @@ impl LeftTab {
 
     pub fn label(self) -> &'static str {
         match self {
-            LeftTab::Media   => "Media",
+            LeftTab::Media => "Media",
             LeftTab::Effects => "Effects",
         }
     }
 
     pub fn icon(self) -> &'static str {
         match self {
-            LeftTab::Media   => "\u{229E}",  // ⊞
-            LeftTab::Effects => "\u{2726}",  // ✦
+            LeftTab::Media => "\u{229E}",   // ⊞
+            LeftTab::Effects => "\u{2726}", // ✦
         }
     }
 }
@@ -143,11 +148,7 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                 .size(14.0)
                 .strong(),
         );
-        ui.label(
-            egui::RichText::new("Studio")
-                .color(Theme::t3())
-                .size(14.0),
-        );
+        ui.label(egui::RichText::new("Studio").color(Theme::t3()).size(14.0));
 
         ui.add_space(12.0);
 
@@ -162,21 +163,37 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                 ui.spacing_mut().item_spacing = Vec2::new(2.0, 0.0);
                 for tab in LeftTab::ALL {
                     let is_active = state.left_tab == tab;
-                    let text_color = if is_active { Theme::accent() } else { Theme::t3() };
-                    let bg = if is_active { Theme::accent_subtle() } else { Color32::TRANSPARENT };
+                    let text_color = if is_active {
+                        Theme::accent()
+                    } else {
+                        Theme::t3()
+                    };
+                    let bg = if is_active {
+                        Theme::accent_subtle()
+                    } else {
+                        Color32::TRANSPARENT
+                    };
 
                     let btn = egui::Frame::none()
                         .fill(bg)
                         .rounding(Rounding::same(6.0))
                         .inner_margin(egui::Margin::symmetric(8.0, 3.0));
 
-                    let resp = btn.show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
-                            ui.label(egui::RichText::new(tab.icon()).size(10.0).color(text_color));
-                            ui.label(egui::RichText::new(tab.label()).size(10.0).color(text_color));
-                        });
-                    }).response;
+                    let resp = btn
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
+                                ui.label(
+                                    egui::RichText::new(tab.icon()).size(10.0).color(text_color),
+                                );
+                                ui.label(
+                                    egui::RichText::new(tab.label())
+                                        .size(10.0)
+                                        .color(text_color),
+                                );
+                            });
+                        })
+                        .response;
 
                     if resp.clicked() && !is_active {
                         state.left_tab = tab;
@@ -200,25 +217,39 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                 ui.spacing_mut().item_spacing = Vec2::new(2.0, 0.0);
                 for page in Page::ALL {
                     let is_active = state.active_page == page;
-                    let text_color = if is_active { Theme::accent() } else { Theme::t3() };
-                    let bg = if is_active { Theme::accent_subtle() } else { Color32::TRANSPARENT };
+                    let text_color = if is_active {
+                        Theme::accent()
+                    } else {
+                        Theme::t3()
+                    };
+                    let bg = if is_active {
+                        Theme::accent_subtle()
+                    } else {
+                        Color32::TRANSPARENT
+                    };
 
                     let btn = egui::Frame::none()
                         .fill(bg)
                         .rounding(Rounding::same(7.0))
                         .inner_margin(egui::Margin::symmetric(12.0, 4.0));
 
-                    let resp = btn.show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
-                            ui.label(egui::RichText::new(page.icon()).size(10.5).color(text_color));
-                            ui.label(
-                                egui::RichText::new(page.label())
-                                    .size(10.5)
-                                    .color(text_color),
-                            );
-                        });
-                    }).response;
+                    let resp = btn
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
+                                ui.label(
+                                    egui::RichText::new(page.icon())
+                                        .size(10.5)
+                                        .color(text_color),
+                                );
+                                ui.label(
+                                    egui::RichText::new(page.label())
+                                        .size(10.5)
+                                        .color(text_color),
+                                );
+                            });
+                        })
+                        .response;
 
                     if resp.clicked() && !is_active {
                         state.active_page = page;
@@ -238,32 +269,54 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
         }
 
         let tools = [
-            ToolBtn { icon: "\u{2318}K", active: false },        // ⌘K
-            ToolBtn { icon: "\u{25D0}", active: state.color_wheels_open },  // ◐
-            ToolBtn { icon: "\u{266A}", active: state.audio_mixer_open },   // ♪
-            ToolBtn { icon: "\u{25A4}", active: state.inspector_open },     // ▤
+            ToolBtn {
+                icon: "\u{2318}K",
+                active: false,
+            }, // ⌘K
+            ToolBtn {
+                icon: "\u{25D0}",
+                active: state.color_wheels_open,
+            }, // ◐
+            ToolBtn {
+                icon: "\u{266A}",
+                active: state.audio_mixer_open,
+            }, // ♪
+            ToolBtn {
+                icon: "\u{25A4}",
+                active: state.inspector_open,
+            }, // ▤
         ];
 
         for (i, tool) in tools.iter().enumerate() {
-            let text_color = if tool.active { Theme::accent() } else { Theme::t3() };
-            let bg = if tool.active { Theme::accent_subtle() } else { Color32::TRANSPARENT };
+            let text_color = if tool.active {
+                Theme::accent()
+            } else {
+                Theme::t3()
+            };
+            let bg = if tool.active {
+                Theme::accent_subtle()
+            } else {
+                Color32::TRANSPARENT
+            };
 
             let btn = egui::Frame::none()
                 .fill(bg)
                 .rounding(Rounding::same(8.0))
                 .inner_margin(egui::Margin::symmetric(6.0, 4.0));
 
-            let resp = btn.show(ui, |ui| {
-                let size = Vec2::new(30.0, 28.0);
-                let (r, _p) = ui.allocate_painter(size, Sense::hover());
-                ui.painter().text(
-                    r.rect.center(),
-                    egui::Align2::CENTER_CENTER,
-                    tool.icon,
-                    egui::FontId::proportional(11.0),
-                    text_color,
-                );
-            }).response;
+            let resp = btn
+                .show(ui, |ui| {
+                    let size = Vec2::new(30.0, 28.0);
+                    let (r, _p) = ui.allocate_painter(size, Sense::hover());
+                    ui.painter().text(
+                        r.rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        tool.icon,
+                        egui::FontId::proportional(11.0),
+                        text_color,
+                    );
+                })
+                .response;
 
             if resp.clicked() {
                 match i {

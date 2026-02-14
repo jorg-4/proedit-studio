@@ -1,7 +1,7 @@
 //! Right-side inspector panel with collapsible sections.
 
-use egui::{self, Color32, Rounding, Stroke, Vec2};
 use crate::theme::Theme;
+use egui::{self, Color32, Rounding, Stroke, Vec2};
 
 // ── Data ───────────────────────────────────────────────────────
 
@@ -33,12 +33,13 @@ pub enum ClipType {
     Gfx,
 }
 
-impl Default for InspectorClip {
-    fn default() -> Self {
+impl InspectorClip {
+    /// Create an inspector clip from a name, color and clip type with sensible defaults.
+    pub fn new(name: String, color: Color32, clip_type: ClipType, out_point: f32) -> Self {
         Self {
-            name: "Hero_Shot_01".into(),
-            color: Theme::accent(),
-            clip_type: ClipType::Video,
+            name,
+            color,
+            clip_type,
             pos_x: 960.0,
             pos_y: 540.0,
             scale: 100.0,
@@ -46,7 +47,7 @@ impl Default for InspectorClip {
             opacity: 100.0,
             speed: 100.0,
             in_point: 0.0,
-            out_point: 440.0,
+            out_point,
             volume: 80.0,
             pan: 0.0,
             eq_enabled: false,
@@ -111,7 +112,8 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::new(8.0, 0.0);
             // Color dot
-            let (dot_resp, dot_painter) = ui.allocate_painter(Vec2::splat(10.0), egui::Sense::hover());
+            let (dot_resp, dot_painter) =
+                ui.allocate_painter(Vec2::splat(10.0), egui::Sense::hover());
             dot_painter.rect_filled(dot_resp.rect, Rounding::same(3.0), clip.color);
 
             ui.label(
@@ -131,15 +133,40 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) {
                 themed_slider(ui, "Pos X", &mut clip.pos_x, 0.0..=1920.0, Theme::accent());
                 themed_slider(ui, "Pos Y", &mut clip.pos_y, 0.0..=1080.0, Theme::accent());
                 themed_slider(ui, "Scale", &mut clip.scale, 0.0..=400.0, Theme::accent());
-                themed_slider(ui, "Rotation", &mut clip.rotation, -360.0..=360.0, Theme::accent());
-                themed_slider(ui, "Opacity", &mut clip.opacity, 0.0..=100.0, Theme::accent());
+                themed_slider(
+                    ui,
+                    "Rotation",
+                    &mut clip.rotation,
+                    -360.0..=360.0,
+                    Theme::accent(),
+                );
+                themed_slider(
+                    ui,
+                    "Opacity",
+                    &mut clip.opacity,
+                    0.0..=100.0,
+                    Theme::accent(),
+                );
             });
 
             // ── Speed & Time section ───────────────────────
             collapsible_section(ui, "Speed & Time", &mut state.speed_open, |ui| {
                 themed_slider(ui, "Speed", &mut clip.speed, 10.0..=400.0, Theme::accent());
-                themed_slider(ui, "In Point", &mut clip.in_point, 0.0..=440.0, Theme::accent());
-                themed_slider(ui, "Out Point", &mut clip.out_point, 0.0..=440.0, Theme::accent());
+                let max_point = clip.out_point.max(clip.in_point).max(1.0);
+                themed_slider(
+                    ui,
+                    "In Point",
+                    &mut clip.in_point,
+                    0.0..=max_point,
+                    Theme::accent(),
+                );
+                themed_slider(
+                    ui,
+                    "Out Point",
+                    &mut clip.out_point,
+                    0.0..=max_point,
+                    Theme::accent(),
+                );
             });
 
             // ── Audio section (only for audio clips) ───────
@@ -149,7 +176,11 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) {
                     themed_slider(ui, "Pan", &mut clip.pan, -100.0..=100.0, Theme::cyan());
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = Vec2::new(8.0, 0.0);
-                        ui.label(egui::RichText::new("EQ Enabled").size(10.0).color(Theme::t3()));
+                        ui.label(
+                            egui::RichText::new("EQ Enabled")
+                                .size(10.0)
+                                .color(Theme::t3()),
+                        );
                         themed_toggle(ui, &mut clip.eq_enabled);
                     });
                 });
@@ -187,27 +218,33 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) {
                         .rounding(Rounding::same(7.0))
                         .inner_margin(egui::Margin::symmetric(8.0, 5.0));
 
-                    let resp = item_frame.show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
-                            ui.label(
-                                egui::RichText::new("\u{2726}")
-                                    .size(10.0)
-                                    .color(Theme::purple()),
-                            );
-                            ui.label(
-                                egui::RichText::new(*item)
-                                    .size(10.5)
-                                    .color(Theme::purple()),
-                            );
-                        });
-                    }).response;
+                    let resp = item_frame
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
+                                ui.label(
+                                    egui::RichText::new("\u{2726}")
+                                        .size(10.0)
+                                        .color(Theme::with_alpha(Theme::purple(), 100)),
+                                );
+                                ui.label(
+                                    egui::RichText::new(*item)
+                                        .size(10.5)
+                                        .color(Theme::with_alpha(Theme::purple(), 100)),
+                                );
+                            });
+                        })
+                        .response;
 
-                    if resp.hovered() {
+                    let hovered = resp.hovered();
+                    let hover_rect = resp.rect;
+                    resp.on_hover_text("Requires AI model (not loaded)");
+
+                    if hovered {
                         ui.painter().rect_filled(
-                            resp.rect,
+                            hover_rect,
                             Rounding::same(7.0),
-                            Theme::with_alpha(Theme::purple(), 12),
+                            Theme::with_alpha(Theme::purple(), 8),
                         );
                     }
                 }
@@ -234,17 +271,19 @@ fn collapsible_section(
         Theme::with_alpha(Color32::WHITE, 8),
     );
 
-    let header_resp = ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
-        ui.add_space(4.0);
-        ui.label(egui::RichText::new(chevron).size(8.0).color(Theme::t4()));
-        ui.label(
-            egui::RichText::new(title)
-                .size(9.5)
-                .color(Theme::t3())
-                .strong(),
-        );
-    }).response;
+    let header_resp = ui
+        .horizontal(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
+            ui.add_space(4.0);
+            ui.label(egui::RichText::new(chevron).size(8.0).color(Theme::t4()));
+            ui.label(
+                egui::RichText::new(title)
+                    .size(9.5)
+                    .color(Theme::t3())
+                    .strong(),
+            );
+        })
+        .response;
 
     if header_resp.clicked() {
         *open = !*open;
@@ -273,11 +312,7 @@ fn themed_slider(
         let label_width = 54.0;
         ui.allocate_ui(Vec2::new(label_width, 26.0), |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(
-                    egui::RichText::new(label)
-                        .size(10.0)
-                        .color(Theme::t3()),
-                );
+                ui.label(egui::RichText::new(label).size(10.0).color(Theme::t3()));
             });
         });
 
@@ -288,10 +323,8 @@ fn themed_slider(
             ui.allocate_painter(Vec2::new(track_width, 26.0), egui::Sense::click_and_drag());
         let track_rect = track_resp.rect;
 
-        let bar_rect = egui::Rect::from_center_size(
-            track_rect.center(),
-            Vec2::new(track_width, track_height),
-        );
+        let bar_rect =
+            egui::Rect::from_center_size(track_rect.center(), Vec2::new(track_width, track_height));
 
         // Background track
         track_painter.rect_filled(
@@ -309,7 +342,8 @@ fn themed_slider(
             0.0
         };
         let fill_width = bar_rect.width() * frac.clamp(0.0, 1.0);
-        let fill_rect = egui::Rect::from_min_size(bar_rect.min, Vec2::new(fill_width, track_height));
+        let fill_rect =
+            egui::Rect::from_min_size(bar_rect.min, Vec2::new(fill_width, track_height));
         track_painter.rect_filled(fill_rect, Rounding::same(2.0), accent);
 
         // Thumb
@@ -357,7 +391,10 @@ fn themed_toggle(ui: &mut egui::Ui, on: &mut bool) {
 
     // Track
     let (track_bg, track_border) = if *on {
-        (Theme::with_alpha(Theme::accent(), 102), Theme::with_alpha(Theme::accent(), 153))
+        (
+            Theme::with_alpha(Theme::accent(), 102),
+            Theme::with_alpha(Theme::accent(), 153),
+        )
     } else {
         (
             Color32::from_rgba_premultiplied(2, 2, 2, 15),
@@ -373,6 +410,10 @@ fn themed_toggle(ui: &mut egui::Ui, on: &mut bool) {
     } else {
         rect.left() + 9.0
     };
-    let thumb_color = if *on { Theme::accent() } else { Color32::from_rgba_premultiplied(64, 64, 64, 255) };
+    let thumb_color = if *on {
+        Theme::accent()
+    } else {
+        Color32::from_rgba_premultiplied(64, 64, 64, 255)
+    };
     painter.circle_filled(egui::Pos2::new(thumb_x, rect.center().y), 7.0, thumb_color);
 }

@@ -84,7 +84,6 @@ impl PixelFormat {
     }
 }
 
-
 /// A plane of pixel data with stride information.
 #[derive(Debug, Clone)]
 pub struct FramePlane {
@@ -184,22 +183,22 @@ impl FrameBuffer {
             }
             PixelFormat::Nv12 => {
                 smallvec::smallvec![
-                    FramePlane::new(width, height, 1),           // Y
-                    FramePlane::new(width / 2, height / 2, 2),   // UV interleaved
+                    FramePlane::new(width, height, 1),         // Y
+                    FramePlane::new(width / 2, height / 2, 2), // UV interleaved
                 ]
             }
             PixelFormat::Yuv420P => {
                 smallvec::smallvec![
-                    FramePlane::new(width, height, 1),           // Y
-                    FramePlane::new(width / 2, height / 2, 1),   // U
-                    FramePlane::new(width / 2, height / 2, 1),   // V
+                    FramePlane::new(width, height, 1),         // Y
+                    FramePlane::new(width / 2, height / 2, 1), // U
+                    FramePlane::new(width / 2, height / 2, 1), // V
                 ]
             }
             PixelFormat::Yuv420P10 => {
                 smallvec::smallvec![
-                    FramePlane::new(width, height, 2),           // Y
-                    FramePlane::new(width / 2, height / 2, 2),   // U
-                    FramePlane::new(width / 2, height / 2, 2),   // V
+                    FramePlane::new(width, height, 2),         // Y
+                    FramePlane::new(width / 2, height / 2, 2), // U
+                    FramePlane::new(width / 2, height / 2, 2), // V
                 ]
             }
         };

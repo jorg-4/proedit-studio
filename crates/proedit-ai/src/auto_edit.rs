@@ -181,7 +181,10 @@ fn build_media_summary(pool: &[MediaAssetSummary]) -> String {
             summary.push_str(&format!("transcript: \"{preview}...\" "));
         }
         if !asset.scene_descriptions.is_empty() {
-            summary.push_str(&format!("scenes: [{}] ", asset.scene_descriptions.join(", ")));
+            summary.push_str(&format!(
+                "scenes: [{}] ",
+                asset.scene_descriptions.join(", ")
+            ));
         }
         summary.push_str(&format!("audio: {}", asset.audio_type));
         summary.push('\n');
@@ -190,10 +193,7 @@ fn build_media_summary(pool: &[MediaAssetSummary]) -> String {
 }
 
 /// Generate a simple sequential edit as a fallback when cloud is unavailable.
-fn generate_simple_edit(
-    pool: &[MediaAssetSummary],
-    target_duration: Option<f64>,
-) -> EditPlan {
+fn generate_simple_edit(pool: &[MediaAssetSummary], target_duration: Option<f64>) -> EditPlan {
     let target = target_duration.unwrap_or(60.0);
     let mut clips = Vec::new();
     let mut timeline_pos = 0.0;
@@ -298,11 +298,7 @@ mod tests {
 
         assert!(!plan.clips.is_empty());
         // Total planned duration should not exceed target
-        let total: f64 = plan
-            .clips
-            .iter()
-            .map(|c| c.out_point - c.in_point)
-            .sum();
+        let total: f64 = plan.clips.iter().map(|c| c.out_point - c.in_point).sum();
         assert!(total <= 20.5, "Total duration {total} should be <= ~20s");
     }
 

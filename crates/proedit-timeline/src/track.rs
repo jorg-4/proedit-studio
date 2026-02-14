@@ -74,9 +74,9 @@ impl Track {
 
     /// Get the total duration of this track.
     pub fn duration(&self) -> RationalTime {
-        self.items.iter().fold(RationalTime::ZERO, |acc, item| {
-            acc + item.duration()
-        })
+        self.items
+            .iter()
+            .fold(RationalTime::ZERO, |acc, item| acc + item.duration())
     }
 
     /// Add a clip to the end of the track.

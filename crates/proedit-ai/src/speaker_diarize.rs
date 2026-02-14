@@ -6,9 +6,9 @@
 //! Uses a pyannote/NeMo-style ONNX model when available, with a
 //! CPU fallback based on spectral feature clustering.
 
-use crate::error::AiResult;
 #[cfg(feature = "onnx")]
 use crate::error::AiError;
+use crate::error::AiResult;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -72,10 +72,7 @@ impl SpeakerDiarizer {
 
     /// Load the ONNX model for diarization.
     #[cfg(feature = "onnx")]
-    pub fn load(
-        model_path: &std::path::Path,
-        config: DiarizeConfig,
-    ) -> AiResult<Self> {
+    pub fn load(model_path: &std::path::Path, config: DiarizeConfig) -> AiResult<Self> {
         if !model_path.exists() {
             return Err(AiError::ModelNotFound {
                 model_id: format!("{:?}", crate::model_manager::ModelId::SpeakerDiarize),
@@ -87,11 +84,7 @@ impl SpeakerDiarizer {
     /// Run speaker diarization on audio samples.
     ///
     /// Returns speaker segments sorted by start time.
-    pub fn diarize(
-        &self,
-        samples: &[f32],
-        sample_rate: u32,
-    ) -> AiResult<Vec<SpeakerSegment>> {
+    pub fn diarize(&self, samples: &[f32], sample_rate: u32) -> AiResult<Vec<SpeakerSegment>> {
         if samples.is_empty() || sample_rate == 0 {
             return Ok(Vec::new());
         }
@@ -256,10 +249,7 @@ fn zero_crossing_rate(samples: &[f32]) -> f32 {
 }
 
 /// Merge adjacent segments from the same speaker within the merge gap.
-fn merge_speaker_segments(
-    segments: Vec<SpeakerSegment>,
-    merge_gap: f32,
-) -> Vec<SpeakerSegment> {
+fn merge_speaker_segments(segments: Vec<SpeakerSegment>, merge_gap: f32) -> Vec<SpeakerSegment> {
     if segments.is_empty() {
         return segments;
     }

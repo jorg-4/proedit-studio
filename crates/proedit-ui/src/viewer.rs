@@ -1,7 +1,7 @@
 //! Viewport / viewer with animated gradient background and transport overlay.
 
-use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 use crate::theme::Theme;
+use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 
 // ── State ──────────────────────────────────────────────────────
 
@@ -11,6 +11,7 @@ pub struct ViewerState {
     pub speed: f32,
     pub selected_clip: Option<usize>,
     pub fps: f32,
+    pub has_media: bool,
 }
 
 impl Default for ViewerState {
@@ -21,6 +22,7 @@ impl Default for ViewerState {
             speed: 1.0,
             selected_clip: None,
             fps: 24.0,
+            has_media: false,
         }
     }
 }
@@ -50,7 +52,11 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
 
     // Subtle mid-tone overlay in the center region
     let mid_rect = rect.shrink2(Vec2::new(rect.width() * 0.2, rect.height() * 0.2));
-    painter.rect_filled(mid_rect, 0.0, Color32::from_rgba_premultiplied(20, 26, 38, 40));
+    painter.rect_filled(
+        mid_rect,
+        0.0,
+        Color32::from_rgba_premultiplied(20, 26, 38, 40),
+    );
 
     // Floating radial highlight
     let cx = rect.center().x + (time * 0.3).sin() as f32 * rect.width() * 0.15;
@@ -71,8 +77,23 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         Stroke::new(1.0, Color32::from_rgba_premultiplied(255, 255, 255, 8)),
     );
 
-    // ── Idle hint (not playing, no selection) ──────────────
-    if !state.playing && state.selected_clip.is_none() {
+    // ── Idle / empty hint ─────────────────────────────────
+    if !state.has_media {
+        painter.text(
+            Pos2::new(rect.center().x, rect.center().y - 10.0),
+            egui::Align2::CENTER_CENTER,
+            "\u{25B6}",
+            egui::FontId::proportional(40.0),
+            Color32::from_rgba_premultiplied(255, 255, 255, 25),
+        );
+        painter.text(
+            Pos2::new(rect.center().x, rect.center().y + 30.0),
+            egui::Align2::CENTER_CENTER,
+            "Open a video file to begin",
+            egui::FontId::proportional(10.0),
+            Theme::t4(),
+        );
+    } else if !state.playing && state.selected_clip.is_none() {
         painter.text(
             Pos2::new(rect.center().x, rect.center().y - 10.0),
             egui::Align2::CENTER_CENTER,
@@ -114,9 +135,9 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         Vec2::splat(btn_size),
     );
     let (btn_bg, btn_color, btn_icon) = if state.playing {
-        (Theme::red(), Theme::t1(), "\u{23F8}")  // ⏸
+        (Theme::red(), Theme::t1(), "\u{23F8}") // ⏸
     } else {
-        (Theme::accent(), Theme::t1(), "\u{25B6}")  // ▶
+        (Theme::accent(), Theme::t1(), "\u{25B6}") // ▶
     };
     painter.rect_filled(btn_rect, Rounding::same(8.0), btn_bg);
     painter.text(
@@ -158,10 +179,7 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     if (state.speed - 1.0).abs() > 0.01 {
         let speed_text = format!("{:.1}x", state.speed);
         let speed_x = bar_left + btn_size + 90.0;
-        let badge_rect = Rect::from_center_size(
-            Pos2::new(speed_x, bar_y),
-            Vec2::new(36.0, 18.0),
-        );
+        let badge_rect = Rect::from_center_size(Pos2::new(speed_x, bar_y), Vec2::new(36.0, 18.0));
         painter.rect_filled(badge_rect, Rounding::same(6.0), Theme::accent_subtle());
         painter.text(
             badge_rect.center(),
@@ -195,14 +213,17 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     // Tool buttons when clip selected
     if state.selected_clip.is_some() {
         let tool_icons = ["\u{2702}", "\u{25D1}", "fx", "\u{26A1}", "\u{2726}"];
-        let tool_colors = [Theme::t2(), Theme::t2(), Theme::t2(), Theme::t2(), Theme::purple()];
+        let tool_colors = [
+            Theme::t2(),
+            Theme::t2(),
+            Theme::t2(),
+            Theme::t2(),
+            Theme::purple(),
+        ];
         let tools_start_x = rect.center().x - 80.0;
         for (i, (icon, color)) in tool_icons.iter().zip(tool_colors.iter()).enumerate() {
             let tx = tools_start_x + i as f32 * 34.0;
-            let tool_rect = Rect::from_center_size(
-                Pos2::new(tx, bar_y),
-                Vec2::new(28.0, 24.0),
-            );
+            let tool_rect = Rect::from_center_size(Pos2::new(tx, bar_y), Vec2::new(28.0, 24.0));
             painter.rect_filled(
                 tool_rect,
                 Rounding::same(6.0),

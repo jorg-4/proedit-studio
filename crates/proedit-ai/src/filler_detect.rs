@@ -341,9 +341,7 @@ mod tests {
             );
         }
         // 1 second of silence
-        for _ in 0..sample_rate {
-            samples.push(0.0);
-        }
+        samples.resize(samples.len() + sample_rate as usize, 0.0);
         // 1 second of tone
         for i in 0..sample_rate {
             samples.push(

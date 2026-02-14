@@ -5,9 +5,9 @@
 //!
 //! Requires the `onnx` feature flag and a pre-downloaded Real-ESRGAN model.
 
-use crate::error::AiResult;
 #[cfg(feature = "onnx")]
 use crate::error::AiError;
+use crate::error::AiResult;
 use proedit_core::FrameBuffer;
 
 /// Configuration for the upscaler.
@@ -114,11 +114,7 @@ pub struct BlendParams {
 }
 
 /// Blend an upscaled tile into the output frame with feathered overlap.
-pub fn blend_tile_into(
-    output: &mut FrameBuffer,
-    tile_data: &[u8],
-    params: &BlendParams,
-) {
+pub fn blend_tile_into(output: &mut FrameBuffer, tile_data: &[u8], params: &BlendParams) {
     let tile_w = params.tile_w;
     let tile_h = params.tile_h;
     let dst_x = params.dst_x;
@@ -207,10 +203,7 @@ impl Upscaler {
 
     /// Load the ONNX model for upscaling.
     #[cfg(feature = "onnx")]
-    pub fn load(
-        model_path: &std::path::Path,
-        config: UpscaleConfig,
-    ) -> AiResult<Self> {
+    pub fn load(model_path: &std::path::Path, config: UpscaleConfig) -> AiResult<Self> {
         if !model_path.exists() {
             return Err(AiError::ModelNotFound {
                 model_id: format!("{:?}", crate::model_manager::ModelId::RealESRGAN4x),
@@ -233,12 +226,8 @@ impl Upscaler {
         for tile in &tiles {
             // CPU fallback: bilinear upscale each tile
             // In production, this would run the Real-ESRGAN ONNX model
-            let upscaled = cpu_bilinear_upscale(
-                &tile.pixels,
-                tile.width,
-                tile.height,
-                self.config.scale,
-            );
+            let upscaled =
+                cpu_bilinear_upscale(&tile.pixels, tile.width, tile.height, self.config.scale);
 
             let up_w = tile.width * self.config.scale;
             let up_h = tile.height * self.config.scale;
@@ -358,7 +347,10 @@ mod tests {
         let frame = make_solid_frame(64, 64, 100, 100, 100);
         let tiles = split_into_tiles(&frame, 32, 8);
         // With overlap=8, step=24, so we get more tiles
-        assert!(tiles.len() >= 4, "Overlapping tiles should produce >= 4 tiles");
+        assert!(
+            tiles.len() >= 4,
+            "Overlapping tiles should produce >= 4 tiles"
+        );
     }
 
     #[test]
@@ -376,7 +368,10 @@ mod tests {
     #[test]
     fn test_blend_weight_mid_overlap() {
         let w = compute_blend_weight(5, 50, 100, 100, 10);
-        assert!((w - 0.5).abs() < 0.01, "Mid-overlap should be ~0.5, got {w}");
+        assert!(
+            (w - 0.5).abs() < 0.01,
+            "Mid-overlap should be ~0.5, got {w}"
+        );
     }
 
     #[test]

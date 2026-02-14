@@ -1,7 +1,7 @@
 //! Floating color wheels panel with 4 wheels and mini scopes.
 
-use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 use crate::theme::Theme;
+use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 
 const WHEEL_SIZE: f32 = 70.0;
 const WHEEL_RADIUS: f32 = WHEEL_SIZE / 2.0;
@@ -155,8 +155,7 @@ fn draw_wheel(ui: &mut egui::Ui, index: usize, state: &mut ColorWheelsState, _ti
 }
 
 fn draw_scope(ui: &mut egui::Ui, width: f32, height: f32, color: Color32, time: f64, seed: u32) {
-    let (response, painter) =
-        ui.allocate_painter(Vec2::new(width, height), egui::Sense::hover());
+    let (response, painter) = ui.allocate_painter(Vec2::new(width, height), egui::Sense::hover());
     let rect = response.rect;
 
     // Background

@@ -265,11 +265,7 @@ fn local_pacing_analysis(edit_data: &EditMetadata) -> NarrativeFeedback {
     let mut suggestions = Vec::new();
 
     // Compute average cut length
-    let cut_lengths: Vec<f64> = edit_data
-        .clips
-        .iter()
-        .map(|c| c.end - c.start)
-        .collect();
+    let cut_lengths: Vec<f64> = edit_data.clips.iter().map(|c| c.end - c.start).collect();
 
     let avg_cut = if cut_lengths.is_empty() {
         0.0
@@ -293,7 +289,8 @@ fn local_pacing_analysis(edit_data: &EditMetadata) -> NarrativeFeedback {
                 timecode: 0.0,
                 severity: Severity::Suggestion,
                 category: "hook".into(),
-                description: "Consider a shorter opening clip to hook viewers in the first 3 seconds".into(),
+                description:
+                    "Consider a shorter opening clip to hook viewers in the first 3 seconds".into(),
             });
         }
     }
@@ -359,7 +356,10 @@ mod tests {
     #[test]
     fn test_target_format_display() {
         assert_eq!(TargetFormat::YouTubeVideo.display_name(), "YouTube Video");
-        assert_eq!(TargetFormat::ShortForm.display_name(), "Short Form (TikTok/Reels)");
+        assert_eq!(
+            TargetFormat::ShortForm.display_name(),
+            "Short Form (TikTok/Reels)"
+        );
     }
 
     #[test]

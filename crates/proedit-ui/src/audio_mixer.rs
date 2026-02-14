@@ -1,13 +1,13 @@
 //! Floating audio mixer panel.
 
-use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 use crate::theme::Theme;
+use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 
 // ── State ──────────────────────────────────────────────────────
 
 pub struct AudioMixerState {
     pub master_volume: f32,
-    pub levels: [f32; 3],  // A1, A2, A3
+    pub levels: [f32; 3], // A1, A2, A3
     pub loudness_metering: bool,
     pub limiter: bool,
 }
@@ -16,7 +16,7 @@ impl Default for AudioMixerState {
     fn default() -> Self {
         Self {
             master_volume: 80.0,
-            levels: [0.62, 0.35, 0.78],
+            levels: [0.0, 0.0, 0.0],
             loudness_metering: true,
             limiter: false,
         }
@@ -69,11 +69,7 @@ fn mixer_slider(ui: &mut egui::Ui, label: &str, value: &mut f32, accent: Color32
         // Label
         ui.allocate_ui(Vec2::new(42.0, 20.0), |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(
-                    egui::RichText::new(label)
-                        .size(9.0)
-                        .color(Theme::t3()),
-                );
+                ui.label(egui::RichText::new(label).size(9.0).color(Theme::t3()));
             });
         });
 
@@ -82,12 +78,13 @@ fn mixer_slider(ui: &mut egui::Ui, label: &str, value: &mut f32, accent: Color32
         let (track_resp, track_painter) =
             ui.allocate_painter(Vec2::new(track_width, 20.0), egui::Sense::click_and_drag());
         let track_rect = track_resp.rect;
-        let bar_rect = Rect::from_center_size(
-            track_rect.center(),
-            Vec2::new(track_width, 4.0),
-        );
+        let bar_rect = Rect::from_center_size(track_rect.center(), Vec2::new(track_width, 4.0));
 
-        track_painter.rect_filled(bar_rect, Rounding::same(2.0), Color32::from_rgba_premultiplied(255, 255, 255, 10));
+        track_painter.rect_filled(
+            bar_rect,
+            Rounding::same(2.0),
+            Color32::from_rgba_premultiplied(255, 255, 255, 10),
+        );
 
         let frac = (*value / 100.0).clamp(0.0, 1.0);
         let fill_rect = Rect::from_min_size(bar_rect.min, Vec2::new(bar_rect.width() * frac, 4.0));
@@ -119,11 +116,7 @@ fn level_meter(ui: &mut egui::Ui, label: &str, level: f32) {
 
         // Label
         ui.allocate_ui(Vec2::new(20.0, 16.0), |ui| {
-            ui.label(
-                egui::RichText::new(label)
-                    .size(9.0)
-                    .color(Theme::t4()),
-            );
+            ui.label(egui::RichText::new(label).size(9.0).color(Theme::t4()));
         });
 
         // Meter bar
@@ -173,7 +166,10 @@ fn mixer_toggle(ui: &mut egui::Ui, label: &str, on: &mut bool) {
 
         let rect = resp.rect;
         let (track_bg, track_border) = if *on {
-            (Theme::with_alpha(Theme::accent(), 102), Theme::with_alpha(Theme::accent(), 153))
+            (
+                Theme::with_alpha(Theme::accent(), 102),
+                Theme::with_alpha(Theme::accent(), 153),
+            )
         } else {
             (
                 Color32::from_rgba_premultiplied(255, 255, 255, 15),
@@ -183,8 +179,16 @@ fn mixer_toggle(ui: &mut egui::Ui, label: &str, on: &mut bool) {
         painter.rect_filled(rect, Rounding::same(9.0), track_bg);
         painter.rect_stroke(rect, Rounding::same(9.0), Stroke::new(0.5, track_border));
 
-        let thumb_x = if *on { rect.right() - 9.0 } else { rect.left() + 9.0 };
-        let thumb_color = if *on { Theme::accent() } else { Color32::from_rgba_premultiplied(255, 255, 255, 64) };
+        let thumb_x = if *on {
+            rect.right() - 9.0
+        } else {
+            rect.left() + 9.0
+        };
+        let thumb_color = if *on {
+            Theme::accent()
+        } else {
+            Color32::from_rgba_premultiplied(255, 255, 255, 64)
+        };
         painter.circle_filled(Pos2::new(thumb_x, rect.center().y), 7.0, thumb_color);
 
         let text_color = if *on { Theme::t1() } else { Theme::t3() };

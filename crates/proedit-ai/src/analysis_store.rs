@@ -114,11 +114,7 @@ impl AnalysisStore {
     }
 
     /// Save embeddings for an asset (binary format).
-    pub fn save_embeddings(
-        &self,
-        asset_id: &str,
-        embeddings: &[FrameEmbedding],
-    ) -> AiResult<()> {
+    pub fn save_embeddings(&self, asset_id: &str, embeddings: &[FrameEmbedding]) -> AiResult<()> {
         self.ensure_dir()?;
         let emb_path = self.embeddings_path(asset_id);
         let data = serde_json::to_vec(embeddings).map_err(|e| {

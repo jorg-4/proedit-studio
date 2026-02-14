@@ -7,30 +7,66 @@ pub struct Theme;
 
 impl Theme {
     // ── Backgrounds ──────────────────────────────────────────────
-    pub const fn bg() -> Color32 { Color32::from_rgb(5, 5, 8) }
-    pub const fn bg1() -> Color32 { Color32::from_rgb(11, 11, 18) }
-    pub const fn bg2() -> Color32 { Color32::from_rgb(18, 18, 30) }
-    pub const fn bg3() -> Color32 { Color32::from_rgb(26, 26, 43) }
-    pub const fn bg4() -> Color32 { Color32::from_rgb(34, 34, 58) }
+    pub const fn bg() -> Color32 {
+        Color32::from_rgb(5, 5, 8)
+    }
+    pub const fn bg1() -> Color32 {
+        Color32::from_rgb(11, 11, 18)
+    }
+    pub const fn bg2() -> Color32 {
+        Color32::from_rgb(18, 18, 30)
+    }
+    pub const fn bg3() -> Color32 {
+        Color32::from_rgb(26, 26, 43)
+    }
+    pub const fn bg4() -> Color32 {
+        Color32::from_rgb(34, 34, 58)
+    }
 
     // ── Text ─────────────────────────────────────────────────────
-    pub const fn t1() -> Color32 { Color32::from_rgb(244, 244, 252) }
-    pub const fn t2() -> Color32 { Color32::from_rgb(152, 152, 180) }
-    pub const fn t3() -> Color32 { Color32::from_rgb(94, 94, 120) }
-    pub const fn t4() -> Color32 { Color32::from_rgb(62, 62, 88) }
+    pub const fn t1() -> Color32 {
+        Color32::from_rgb(244, 244, 252)
+    }
+    pub const fn t2() -> Color32 {
+        Color32::from_rgb(152, 152, 180)
+    }
+    pub const fn t3() -> Color32 {
+        Color32::from_rgb(94, 94, 120)
+    }
+    pub const fn t4() -> Color32 {
+        Color32::from_rgb(62, 62, 88)
+    }
 
     // ── Accent ───────────────────────────────────────────────────
-    pub const fn accent() -> Color32 { Color32::from_rgb(78, 133, 255) }
-    pub const fn accent_subtle() -> Color32 { Color32::from_rgba_premultiplied(11, 19, 36, 36) }
-    pub const fn accent_glow() -> Color32 { Color32::from_rgba_premultiplied(22, 37, 71, 71) }
+    pub const fn accent() -> Color32 {
+        Color32::from_rgb(78, 133, 255)
+    }
+    pub const fn accent_subtle() -> Color32 {
+        Color32::from_rgba_premultiplied(11, 19, 36, 36)
+    }
+    pub const fn accent_glow() -> Color32 {
+        Color32::from_rgba_premultiplied(22, 37, 71, 71)
+    }
 
     // ── Semantic colors ──────────────────────────────────────────
-    pub const fn red() -> Color32 { Color32::from_rgb(255, 88, 85) }
-    pub const fn green() -> Color32 { Color32::from_rgb(48, 213, 160) }
-    pub const fn amber() -> Color32 { Color32::from_rgb(255, 184, 48) }
-    pub const fn purple() -> Color32 { Color32::from_rgb(167, 139, 250) }
-    pub const fn pink() -> Color32 { Color32::from_rgb(244, 114, 182) }
-    pub const fn cyan() -> Color32 { Color32::from_rgb(34, 211, 238) }
+    pub const fn red() -> Color32 {
+        Color32::from_rgb(255, 88, 85)
+    }
+    pub const fn green() -> Color32 {
+        Color32::from_rgb(48, 213, 160)
+    }
+    pub const fn amber() -> Color32 {
+        Color32::from_rgb(255, 184, 48)
+    }
+    pub const fn purple() -> Color32 {
+        Color32::from_rgb(167, 139, 250)
+    }
+    pub const fn pink() -> Color32 {
+        Color32::from_rgb(244, 114, 182)
+    }
+    pub const fn cyan() -> Color32 {
+        Color32::from_rgb(34, 211, 238)
+    }
 
     // ── Helpers ──────────────────────────────────────────────────
 
@@ -68,7 +104,8 @@ impl Theme {
         // Widgets
         visuals.widgets.noninteractive.bg_fill = Self::bg2();
         visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Self::t3());
-        visuals.widgets.noninteractive.bg_stroke = Stroke::new(0.5, Self::with_alpha(Color32::WHITE, 10));
+        visuals.widgets.noninteractive.bg_stroke =
+            Stroke::new(0.5, Self::with_alpha(Color32::WHITE, 10));
         visuals.widgets.noninteractive.rounding = Rounding::same(8.0);
 
         visuals.widgets.inactive.bg_fill = Self::bg3();

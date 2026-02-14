@@ -157,11 +157,8 @@ pub fn run_ingest_pipeline(
     });
 
     info!(asset = %input.asset_id, "Starting scene detection");
-    let scenes = scene_detect::detect_scenes_by_difference(
-        &input.frames,
-        input.fps,
-        &config.scene_detect,
-    );
+    let scenes =
+        scene_detect::detect_scenes_by_difference(&input.frames, input.fps, &config.scene_detect);
     info!(scenes = scenes.len(), "Scene detection complete");
 
     completed_weight += IngestStage::SceneDetection.weight();
@@ -380,7 +377,10 @@ mod tests {
 
     #[test]
     fn test_ingest_stage_display() {
-        assert_eq!(IngestStage::SceneDetection.display_name(), "Detecting scenes");
+        assert_eq!(
+            IngestStage::SceneDetection.display_name(),
+            "Detecting scenes"
+        );
         assert_eq!(IngestStage::Complete.display_name(), "Analysis complete");
     }
 

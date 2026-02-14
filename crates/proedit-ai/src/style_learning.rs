@@ -137,14 +137,18 @@ impl EditorProfile {
                 self.update_cut_stats(*duration);
             }
             EditOperation::Transition { kind, duration: _ } => {
-                *self.preferred_transitions.entry(kind.clone()).or_insert(0.0) += 1.0;
+                *self
+                    .preferred_transitions
+                    .entry(kind.clone())
+                    .or_insert(0.0) += 1.0;
             }
             EditOperation::ColorGrade {
                 temperature,
                 contrast,
                 saturation,
             } => {
-                self.color_tendencies.observe(*temperature, *contrast, *saturation);
+                self.color_tendencies
+                    .observe(*temperature, *contrast, *saturation);
             }
             EditOperation::TextPlacement {
                 font,
@@ -152,8 +156,7 @@ impl EditorProfile {
                 y_position,
                 alignment,
             } => {
-                self.text_style
-                    .observe(font, *size, *y_position, alignment);
+                self.text_style.observe(font, *size, *y_position, alignment);
             }
         }
         self.total_edits_analyzed += 1;
@@ -237,9 +240,8 @@ impl EditorProfile {
     /// Load a profile from a JSON file.
     pub fn load(path: &Path) -> AiResult<Self> {
         let json = std::fs::read_to_string(path)?;
-        serde_json::from_str(&json).map_err(|e| {
-            AiError::SerializationError(format!("Failed to deserialize profile: {e}"))
-        })
+        serde_json::from_str(&json)
+            .map_err(|e| AiError::SerializationError(format!("Failed to deserialize profile: {e}")))
     }
 
     /// Default profile file path.
@@ -414,6 +416,9 @@ mod tests {
         });
 
         assert_eq!(profile.text_style.observation_count, 1);
-        assert!(profile.text_style.preferred_fonts.contains(&"Helvetica".to_string()));
+        assert!(profile
+            .text_style
+            .preferred_fonts
+            .contains(&"Helvetica".to_string()));
     }
 }

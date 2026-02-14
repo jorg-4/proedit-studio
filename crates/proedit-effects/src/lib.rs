@@ -68,7 +68,10 @@ impl EffectsRegistry {
 
     /// Find an effect by name.
     pub fn find(&self, name: &str) -> Option<&dyn VideoEffect> {
-        self.effects.iter().find(|e| e.name() == name).map(|e| e.as_ref())
+        self.effects
+            .iter()
+            .find(|e| e.name() == name)
+            .map(|e| e.as_ref())
     }
 }
 

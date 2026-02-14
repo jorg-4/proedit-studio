@@ -74,9 +74,7 @@ impl RationalTime {
     #[inline]
     pub fn abs(self) -> Self {
         if *self.value.numer() < 0 {
-            Self {
-                value: -self.value,
-            }
+            Self { value: -self.value }
         } else {
             self
         }

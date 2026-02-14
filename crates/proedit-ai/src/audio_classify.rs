@@ -180,7 +180,11 @@ impl AudioClassifier {
         let mut issues = Vec::new();
 
         // Detect clipping
-        issues.extend(detect_clipping(samples, sample_rate, self.config.clipping_threshold));
+        issues.extend(detect_clipping(
+            samples,
+            sample_rate,
+            self.config.clipping_threshold,
+        ));
 
         // Detect low level
         issues.extend(detect_low_level(samples, sample_rate));
@@ -285,9 +289,7 @@ fn spectral_flatness(samples: &[f32]) -> f32 {
 }
 
 /// Merge adjacent raw segments of the same type.
-fn merge_segments(
-    raw: Vec<(f64, f64, AudioSegmentType, f32)>,
-) -> Vec<AudioSegment> {
+fn merge_segments(raw: Vec<(f64, f64, AudioSegmentType, f32)>) -> Vec<AudioSegment> {
     if raw.is_empty() {
         return Vec::new();
     }
@@ -364,7 +366,11 @@ fn detect_low_level(samples: &[f32], sample_rate: u32) -> Vec<AudioQualityIssue>
     while pos < samples.len() {
         let end = (pos + window).min(samples.len());
         let rms = compute_rms(&samples[pos..end]);
-        let rms_db = if rms > 0.0 { 20.0 * rms.log10() } else { -100.0 };
+        let rms_db = if rms > 0.0 {
+            20.0 * rms.log10()
+        } else {
+            -100.0
+        };
 
         if rms_db > -60.0 && rms_db < -30.0 {
             // Audio present but very quiet
@@ -475,9 +481,14 @@ mod tests {
     #[test]
     fn test_zero_crossing_rate() {
         // Alternating samples should have high ZCR
-        let alternating: Vec<f32> = (0..100).map(|i| if i % 2 == 0 { 1.0 } else { -1.0 }).collect();
+        let alternating: Vec<f32> = (0..100)
+            .map(|i| if i % 2 == 0 { 1.0 } else { -1.0 })
+            .collect();
         let zcr = zero_crossing_rate(&alternating);
-        assert!(zcr > 0.9, "Alternating signal should have high ZCR, got {zcr}");
+        assert!(
+            zcr > 0.9,
+            "Alternating signal should have high ZCR, got {zcr}"
+        );
 
         // Constant signal should have zero ZCR
         let constant = vec![1.0_f32; 100];

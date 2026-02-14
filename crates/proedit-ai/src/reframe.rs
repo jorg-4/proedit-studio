@@ -228,10 +228,7 @@ fn determine_focal_point(
 fn weighted_face_center(faces: &[FaceBbox]) -> Vec2 {
     let total_weight: f32 = faces.iter().map(|f| f.confidence).sum();
     if total_weight <= 0.0 {
-        return faces
-            .first()
-            .map(|f| f.rect.center())
-            .unwrap_or(Vec2::ZERO);
+        return faces.first().map(|f| f.rect.center()).unwrap_or(Vec2::ZERO);
     }
 
     let mut cx = 0.0_f32;
@@ -348,7 +345,11 @@ mod tests {
     #[test]
     fn test_position_crop_centered() {
         let crop = position_crop(1920.0, 1080.0, 600.0, 1080.0, Vec2::new(960.0, 540.0));
-        assert!((crop.x - 660.0).abs() < 1.0, "Crop should be centered at x=660, got {}", crop.x);
+        assert!(
+            (crop.x - 660.0).abs() < 1.0,
+            "Crop should be centered at x=660, got {}",
+            crop.x
+        );
     }
 
     #[test]
@@ -391,14 +392,16 @@ mod tests {
             rect: Rect::new(100.0, 400.0, 100.0, 100.0),
             confidence: 1.0,
         }];
-        let r1 = reframer.compute_reframe(1920, 1080, TargetAspect::Vertical9x16, &faces_left, None);
+        let r1 =
+            reframer.compute_reframe(1920, 1080, TargetAspect::Vertical9x16, &faces_left, None);
 
         // Frame 2: face on the right
         let faces_right = vec![FaceBbox {
             rect: Rect::new(1700.0, 400.0, 100.0, 100.0),
             confidence: 1.0,
         }];
-        let r2 = reframer.compute_reframe(1920, 1080, TargetAspect::Vertical9x16, &faces_right, None);
+        let r2 =
+            reframer.compute_reframe(1920, 1080, TargetAspect::Vertical9x16, &faces_right, None);
 
         // With smoothing, the crop shouldn't jump all the way to the right
         assert!(
@@ -442,7 +445,8 @@ mod tests {
                 confidence: 0.9,
             }],
         ];
-        let results = reframer.compute_sequence(1920, 1080, TargetAspect::Vertical9x16, &frames_faces);
+        let results =
+            reframer.compute_sequence(1920, 1080, TargetAspect::Vertical9x16, &frames_faces);
         assert_eq!(results.len(), 3);
         // Each successive frame should move slightly right
         assert!(results[1].crop_rect.x >= results[0].crop_rect.x);

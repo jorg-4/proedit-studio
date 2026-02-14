@@ -1,7 +1,7 @@
 //! Modal command palette overlay (⌘K).
 
-use egui::{self, Color32, Rounding, Sense, Stroke, Vec2};
 use crate::theme::Theme;
+use egui::{self, Color32, Rounding, Sense, Stroke, Vec2};
 
 // ── Command data ───────────────────────────────────────────────
 
@@ -21,22 +21,56 @@ pub struct Command {
     pub icon: &'static str,
 }
 
-/// All 14 commands from the React reference.
+/// Commands available in the palette — only entries with working implementations.
 pub const COMMANDS: &[Command] = &[
-    Command { name: "Import Media",      shortcut: "\u{2318}I",      category: CommandCategory::File, icon: "\u{2193}" },
-    Command { name: "Export Project",     shortcut: "\u{2318}\u{21E7}E", category: CommandCategory::File, icon: "\u{2197}" },
-    Command { name: "Undo",              shortcut: "\u{2318}Z",      category: CommandCategory::Edit, icon: "\u{21BA}" },
-    Command { name: "Razor at Playhead", shortcut: "C",              category: CommandCategory::Edit, icon: "\u{2702}" },
-    Command { name: "Ripple Delete",     shortcut: "\u{232B}",       category: CommandCategory::Edit, icon: "\u{2326}" },
-    Command { name: "Add Marker",        shortcut: "M",              category: CommandCategory::Edit, icon: "\u{25C6}" },
-    Command { name: "AI: Smart Trim",    shortcut: "\u{2014}",       category: CommandCategory::Ai,   icon: "\u{2726}" },
-    Command { name: "AI: Auto Caption",  shortcut: "\u{2014}",       category: CommandCategory::Ai,   icon: "\u{2726}" },
-    Command { name: "AI: Remove Silence",shortcut: "\u{2014}",       category: CommandCategory::Ai,   icon: "\u{2726}" },
-    Command { name: "AI: Scene Detect",  shortcut: "\u{2014}",       category: CommandCategory::Ai,   icon: "\u{2726}" },
-    Command { name: "AI: Color Match",   shortcut: "\u{2014}",       category: CommandCategory::Ai,   icon: "\u{2726}" },
-    Command { name: "AI: Style Transfer",shortcut: "\u{2014}",       category: CommandCategory::Ai,   icon: "\u{2726}" },
-    Command { name: "Speed Ramp",        shortcut: "R",              category: CommandCategory::Edit, icon: "\u{26A1}" },
-    Command { name: "Toggle Audio Mixer",shortcut: "\u{2318}M",      category: CommandCategory::View, icon: "\u{266A}" },
+    Command {
+        name: "Import Media",
+        shortcut: "\u{2318}I",
+        category: CommandCategory::File,
+        icon: "\u{2193}",
+    },
+    Command {
+        name: "Export Project",
+        shortcut: "\u{2318}\u{21E7}E",
+        category: CommandCategory::File,
+        icon: "\u{2197}",
+    },
+    Command {
+        name: "Undo",
+        shortcut: "\u{2318}Z",
+        category: CommandCategory::Edit,
+        icon: "\u{21BA}",
+    },
+    Command {
+        name: "Razor at Playhead",
+        shortcut: "C",
+        category: CommandCategory::Edit,
+        icon: "\u{2702}",
+    },
+    Command {
+        name: "Ripple Delete",
+        shortcut: "\u{232B}",
+        category: CommandCategory::Edit,
+        icon: "\u{2326}",
+    },
+    Command {
+        name: "Add Marker",
+        shortcut: "M",
+        category: CommandCategory::Edit,
+        icon: "\u{25C6}",
+    },
+    Command {
+        name: "Speed Ramp",
+        shortcut: "R",
+        category: CommandCategory::Edit,
+        icon: "\u{26A1}",
+    },
+    Command {
+        name: "Toggle Audio Mixer",
+        shortcut: "\u{2318}M",
+        category: CommandCategory::View,
+        icon: "\u{266A}",
+    },
 ];
 
 // ── State ──────────────────────────────────────────────────────
@@ -93,7 +127,10 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
 
     egui::Area::new(egui::Id::new("command_palette"))
         .order(egui::Order::Foreground)
-        .anchor(egui::Align2::CENTER_TOP, Vec2::new(0.0, screen.height() * 0.15))
+        .anchor(
+            egui::Align2::CENTER_TOP,
+            Vec2::new(0.0, screen.height() * 0.15),
+        )
         .show(ctx, |ui| {
             Theme::glass_frame()
                 .rounding(Rounding::same(16.0))
@@ -133,7 +170,10 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                     // Separator
                     let sep_rect = ui.allocate_space(Vec2::new(ui.available_width(), 0.5));
                     ui.painter().rect_filled(
-                        egui::Rect::from_min_size(sep_rect.1.min, Vec2::new(sep_rect.1.width(), 0.5)),
+                        egui::Rect::from_min_size(
+                            sep_rect.1.min,
+                            Vec2::new(sep_rect.1.width(), 0.5),
+                        ),
                         0.0,
                         Theme::with_alpha(Color32::WHITE, 10),
                     );
@@ -158,72 +198,99 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                     .rounding(Rounding::same(9.0))
                                     .inner_margin(egui::Margin::symmetric(10.0, 7.0));
 
-                                let resp = frame.show(ui, |ui| {
-                                    ui.horizontal(|ui| {
-                                        ui.spacing_mut().item_spacing = Vec2::new(9.0, 0.0);
+                                let resp = frame
+                                    .show(ui, |ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.spacing_mut().item_spacing = Vec2::new(9.0, 0.0);
 
-                                        // Icon box
-                                        let icon_bg = if is_ai {
-                                            Theme::with_alpha(Theme::purple(), 30)
-                                        } else {
-                                            Color32::from_rgba_premultiplied(2, 2, 2, 8)
-                                        };
-                                        let icon_color = if is_ai { Theme::purple() } else { Theme::t2() };
+                                            // Icon box
+                                            let icon_bg = if is_ai {
+                                                Theme::with_alpha(Theme::purple(), 30)
+                                            } else {
+                                                Color32::from_rgba_premultiplied(2, 2, 2, 8)
+                                            };
+                                            let icon_color =
+                                                if is_ai { Theme::purple() } else { Theme::t2() };
 
-                                        let (icon_resp, icon_painter) = ui.allocate_painter(Vec2::splat(24.0), Sense::hover());
-                                        icon_painter.rect_filled(icon_resp.rect, Rounding::same(6.0), icon_bg);
-                                        icon_painter.text(
-                                            icon_resp.rect.center(),
-                                            egui::Align2::CENTER_CENTER,
-                                            cmd.icon,
-                                            egui::FontId::proportional(12.0),
-                                            icon_color,
-                                        );
+                                            let (icon_resp, icon_painter) = ui.allocate_painter(
+                                                Vec2::splat(24.0),
+                                                Sense::hover(),
+                                            );
+                                            icon_painter.rect_filled(
+                                                icon_resp.rect,
+                                                Rounding::same(6.0),
+                                                icon_bg,
+                                            );
+                                            icon_painter.text(
+                                                icon_resp.rect.center(),
+                                                egui::Align2::CENTER_CENTER,
+                                                cmd.icon,
+                                                egui::FontId::proportional(12.0),
+                                                icon_color,
+                                            );
 
-                                        // Name
-                                        ui.label(
-                                            egui::RichText::new(cmd.name)
-                                                .size(12.5)
-                                                .color(Theme::t1()),
-                                        );
+                                            // Name
+                                            ui.label(
+                                                egui::RichText::new(cmd.name)
+                                                    .size(12.5)
+                                                    .color(Theme::t1()),
+                                            );
 
-                                        // AI badge
-                                        if is_ai {
-                                            let badge_frame = egui::Frame::none()
-                                                .fill(Theme::with_alpha(Theme::purple(), 30))
-                                                .rounding(Rounding::same(8.0))
-                                                .inner_margin(egui::Margin::symmetric(6.0, 2.0));
-                                            badge_frame.show(ui, |ui| {
-                                                ui.label(
-                                                    egui::RichText::new("AI")
-                                                        .size(8.0)
-                                                        .color(Theme::purple())
-                                                        .strong(),
-                                                );
-                                            });
-                                        }
-
-                                        // Spacer
-                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                            // Shortcut
-                                            if cmd.shortcut != "\u{2014}" {
-                                                let key_frame = egui::Frame::none()
-                                                    .fill(Color32::from_rgba_premultiplied(2, 2, 2, 10))
-                                                    .stroke(Stroke::new(0.5, Theme::with_alpha(Color32::WHITE, 10)))
-                                                    .rounding(Rounding::same(4.0))
-                                                    .inner_margin(egui::Margin::symmetric(5.0, 2.0));
-                                                key_frame.show(ui, |ui| {
+                                            // AI badge
+                                            if is_ai {
+                                                let badge_frame = egui::Frame::none()
+                                                    .fill(Theme::with_alpha(Theme::purple(), 30))
+                                                    .rounding(Rounding::same(8.0))
+                                                    .inner_margin(egui::Margin::symmetric(
+                                                        6.0, 2.0,
+                                                    ));
+                                                badge_frame.show(ui, |ui| {
                                                     ui.label(
-                                                        egui::RichText::new(cmd.shortcut)
-                                                            .size(9.5)
-                                                            .color(Theme::t3())
-                                                            .family(egui::FontFamily::Monospace),
+                                                        egui::RichText::new("AI")
+                                                            .size(8.0)
+                                                            .color(Theme::purple())
+                                                            .strong(),
                                                     );
                                                 });
                                             }
+
+                                            // Spacer
+                                            ui.with_layout(
+                                                egui::Layout::right_to_left(egui::Align::Center),
+                                                |ui| {
+                                                    // Shortcut
+                                                    if cmd.shortcut != "\u{2014}" {
+                                                        let key_frame = egui::Frame::none()
+                                                            .fill(Color32::from_rgba_premultiplied(
+                                                                2, 2, 2, 10,
+                                                            ))
+                                                            .stroke(Stroke::new(
+                                                                0.5,
+                                                                Theme::with_alpha(
+                                                                    Color32::WHITE,
+                                                                    10,
+                                                                ),
+                                                            ))
+                                                            .rounding(Rounding::same(4.0))
+                                                            .inner_margin(egui::Margin::symmetric(
+                                                                5.0, 2.0,
+                                                            ));
+                                                        key_frame.show(ui, |ui| {
+                                                            ui.label(
+                                                                egui::RichText::new(cmd.shortcut)
+                                                                    .size(9.5)
+                                                                    .color(Theme::t3())
+                                                                    .family(
+                                                                        egui::FontFamily::Monospace,
+                                                                    ),
+                                                            );
+                                                        });
+                                                    }
+                                                },
+                                            );
                                         });
-                                    });
-                                }).response;
+                                    })
+                                    .response;
 
                                 if resp.clicked() {
                                     state.executed = Some(cmd.name);
@@ -239,7 +306,10 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                     // Footer separator
                     let sep_rect2 = ui.allocate_space(Vec2::new(ui.available_width(), 0.5));
                     ui.painter().rect_filled(
-                        egui::Rect::from_min_size(sep_rect2.1.min, Vec2::new(sep_rect2.1.width(), 0.5)),
+                        egui::Rect::from_min_size(
+                            sep_rect2.1.min,
+                            Vec2::new(sep_rect2.1.width(), 0.5),
+                        ),
                         0.0,
                         Theme::with_alpha(Color32::WHITE, 10),
                     );
@@ -247,13 +317,18 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
 
                     // Footer hints
                     ui.horizontal(|ui| {
-                        ui.with_layout(egui::Layout::centered_and_justified(egui::Direction::LeftToRight), |ui| {
-                            ui.label(
-                                egui::RichText::new("\u{2191}\u{2193} Navigate    \u{21B5} Run    esc Close")
+                        ui.with_layout(
+                            egui::Layout::centered_and_justified(egui::Direction::LeftToRight),
+                            |ui| {
+                                ui.label(
+                                    egui::RichText::new(
+                                        "\u{2191}\u{2193} Navigate    \u{21B5} Run    esc Close",
+                                    )
                                     .size(9.0)
                                     .color(Theme::t4()),
-                            );
-                        });
+                                );
+                            },
+                        );
                     });
                 });
         });
@@ -263,9 +338,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
         if inp.key_pressed(egui::Key::Escape) {
             state.open = false;
         }
-        if inp.key_pressed(egui::Key::ArrowDown)
-            && state.hovered_index + 1 < filtered.len()
-        {
+        if inp.key_pressed(egui::Key::ArrowDown) && state.hovered_index + 1 < filtered.len() {
             state.hovered_index += 1;
         }
         if inp.key_pressed(egui::Key::ArrowUp) {

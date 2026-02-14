@@ -280,10 +280,7 @@ impl SAM2Rotoscope {
 
     /// Load the ONNX model for this quality level.
     #[cfg(feature = "onnx")]
-    pub fn load(
-        model_path: &std::path::Path,
-        quality: SegmentationQuality,
-    ) -> AiResult<Self> {
+    pub fn load(model_path: &std::path::Path, quality: SegmentationQuality) -> AiResult<Self> {
         let model_id = match quality {
             SegmentationQuality::Fast => crate::model_manager::ModelId::SAM2ViTB,
             SegmentationQuality::High => crate::model_manager::ModelId::SAM2ViTH,
@@ -319,7 +316,8 @@ impl SAM2Rotoscope {
 
         // Store the embedding (placeholder) and mask for propagation
         let embedding = vec![0.0_f32; 256]; // placeholder
-        self.memory.store_frame(frame_number, embedding, mask.clone());
+        self.memory
+            .store_frame(frame_number, embedding, mask.clone());
 
         Ok(mask)
     }
@@ -333,19 +331,20 @@ impl SAM2Rotoscope {
         frame: &FrameBuffer,
         frame_number: i64,
     ) -> AiResult<MaskBuffer> {
-        let (_prev_embedding, prev_mask) = self
-            .memory
-            .nearest_before(frame_number)
-            .ok_or(AiError::PreprocessError(
-                "No previous frame in memory bank for propagation".into(),
-            ))?;
+        let (_prev_embedding, prev_mask) =
+            self.memory
+                .nearest_before(frame_number)
+                .ok_or(AiError::PreprocessError(
+                    "No previous frame in memory bank for propagation".into(),
+                ))?;
 
         // CPU fallback: propagate by color similarity to the previous mask region.
         // In production, this would use the SAM 2 memory-attention mechanism.
         let mask = cpu_propagate_mask(frame, prev_mask);
 
         let embedding = vec![0.0_f32; 256]; // placeholder
-        self.memory.store_frame(frame_number, embedding, mask.clone());
+        self.memory
+            .store_frame(frame_number, embedding, mask.clone());
 
         Ok(mask)
     }
@@ -422,8 +421,12 @@ fn cpu_segment_by_color(frame: &FrameBuffer, clicks: &[ClickPrompt]) -> MaskBuff
             let px = [row[base], row[base + 1], row[base + 2]];
 
             // Check if close to any reference color
-            let near_ref = ref_colors.iter().any(|rc| color_distance(&px, rc) < threshold);
-            let near_neg = neg_colors.iter().any(|nc| color_distance(&px, nc) < threshold);
+            let near_ref = ref_colors
+                .iter()
+                .any(|rc| color_distance(&px, rc) < threshold);
+            let near_neg = neg_colors
+                .iter()
+                .any(|nc| color_distance(&px, nc) < threshold);
 
             if near_ref && !near_neg {
                 mask.set(x, y, 255);
@@ -583,7 +586,10 @@ mod tests {
 
         // Propagate to next frame (same frame data for test)
         let mask2 = roto.propagate_to_frame(&frame, 1).unwrap();
-        assert!(mask2.get(15, 15) > 0, "Propagated mask should preserve region");
+        assert!(
+            mask2.get(15, 15) > 0,
+            "Propagated mask should preserve region"
+        );
     }
 
     #[test]

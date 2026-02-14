@@ -238,8 +238,16 @@ impl Transform2D {
             translation: [-self.translation[0], -self.translation[1]],
             rotation: -self.rotation,
             scale: [
-                if self.scale[0] != 0.0 { 1.0 / self.scale[0] } else { 0.0 },
-                if self.scale[1] != 0.0 { 1.0 / self.scale[1] } else { 0.0 },
+                if self.scale[0] != 0.0 {
+                    1.0 / self.scale[0]
+                } else {
+                    0.0
+                },
+                if self.scale[1] != 0.0 {
+                    1.0 / self.scale[1]
+                } else {
+                    0.0
+                },
             ],
         }
     }

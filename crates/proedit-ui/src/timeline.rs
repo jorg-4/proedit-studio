@@ -1,14 +1,14 @@
 //! Full-featured timeline with toolbar, ruler, track headers, clips, and playhead.
 
-use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 use crate::theme::Theme;
+use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 
-// ── Clip data (the 9 clips from React reference) ───────────────
+// ── Clip data ────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
 pub struct TimelineClip {
     pub id: usize,
-    pub name: &'static str,
+    pub name: String,
     pub color: Color32,
     pub start: f32,   // frame offset
     pub dur: f32,     // duration in frames
@@ -22,18 +22,6 @@ pub enum ClipKind {
     Audio,
     Gfx,
 }
-
-pub const CLIPS: &[TimelineClip] = &[
-    TimelineClip { id: 1, name: "Hero_Shot_01",  color: Color32::from_rgb(78, 133, 255),  start: 0.0,   dur: 160.0, track: 0, clip_type: ClipKind::Video },
-    TimelineClip { id: 2, name: "B-Roll_City",   color: Color32::from_rgb(167, 139, 250), start: 160.0, dur: 100.0, track: 0, clip_type: ClipKind::Video },
-    TimelineClip { id: 3, name: "Interview_A",   color: Color32::from_rgb(48, 213, 160),  start: 260.0, dur: 180.0, track: 0, clip_type: ClipKind::Video },
-    TimelineClip { id: 4, name: "Title_Card",    color: Color32::from_rgb(244, 114, 182), start: 40.0,  dur: 80.0,  track: 1, clip_type: ClipKind::Gfx },
-    TimelineClip { id: 5, name: "Lower_Third",   color: Color32::from_rgb(255, 184, 48),  start: 270.0, dur: 70.0,  track: 1, clip_type: ClipKind::Gfx },
-    TimelineClip { id: 6, name: "Overlay_Lens",  color: Color32::from_rgb(34, 211, 238),  start: 140.0, dur: 120.0, track: 2, clip_type: ClipKind::Video },
-    TimelineClip { id: 7, name: "VO_Take3",      color: Color32::from_rgb(48, 213, 160),  start: 0.0,   dur: 220.0, track: 3, clip_type: ClipKind::Audio },
-    TimelineClip { id: 8, name: "SFX_Whoosh",    color: Color32::from_rgb(244, 114, 182), start: 155.0, dur: 30.0,  track: 4, clip_type: ClipKind::Audio },
-    TimelineClip { id: 9, name: "Music_Bed",     color: Color32::from_rgb(129, 140, 248), start: 0.0,   dur: 440.0, track: 5, clip_type: ClipKind::Audio },
-];
 
 const TRACK_NAMES: &[&str] = &["V3", "V2", "V1", "A1", "A2", "A3"];
 const TRACK_HEIGHT: f32 = 36.0;
@@ -64,6 +52,7 @@ pub struct TimelineState {
     pub track_muted: [bool; TRACK_COUNT],
     pub hovered_clip: Option<usize>,
     pub fps: f32,
+    pub clips: Vec<TimelineClip>,
 }
 
 impl Default for TimelineState {
@@ -75,14 +64,11 @@ impl Default for TimelineState {
             selected_clip: None,
             snap_enabled: true,
             ripple_enabled: false,
-            markers: vec![
-                Marker { frame: 80.0,  color: Theme::amber() },
-                Marker { frame: 200.0, color: Theme::accent() },
-                Marker { frame: 350.0, color: Theme::green() },
-            ],
+            markers: Vec::new(),
             track_muted: [false; TRACK_COUNT],
             hovered_clip: None,
             fps: 24.0,
+            clips: Vec::new(),
         }
     }
 }
@@ -136,7 +122,8 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                 painter.rect_filled(rect, 0.0, Theme::bg());
 
                 // Ruler
-                let ruler_rect = Rect::from_min_size(rect.min, Vec2::new(clips_width, RULER_HEIGHT));
+                let ruler_rect =
+                    Rect::from_min_size(rect.min, Vec2::new(clips_width, RULER_HEIGHT));
                 draw_ruler(&painter, ruler_rect, state);
 
                 // Track lanes
@@ -164,9 +151,30 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     );
                 }
 
-                // Clips
-                state.hovered_clip = None;
-                for clip in CLIPS {
+                // Clips — empty state
+                if state.clips.is_empty() {
+                    let center = Pos2::new(
+                        rect.center().x,
+                        tracks_top + (TRACK_COUNT as f32 * TRACK_HEIGHT) * 0.5,
+                    );
+                    painter.text(
+                        Pos2::new(center.x, center.y - 8.0),
+                        egui::Align2::CENTER_CENTER,
+                        "\u{25AC}",
+                        egui::FontId::proportional(28.0),
+                        Color32::from_rgba_premultiplied(255, 255, 255, 25),
+                    );
+                    painter.text(
+                        Pos2::new(center.x, center.y + 18.0),
+                        egui::Align2::CENTER_CENTER,
+                        "Drag media here to start editing",
+                        egui::FontId::proportional(10.0),
+                        Theme::t4(),
+                    );
+                }
+
+                let mut new_hovered_clip: Option<usize> = None;
+                for clip in &state.clips {
                     let clip_left = rect.left() + clip.start * state.zoom - state.scroll_x;
                     let clip_width = (clip.dur * state.zoom).max(20.0);
                     let clip_top = tracks_top + clip.track as f32 * TRACK_HEIGHT + 3.0;
@@ -186,7 +194,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         && response.hover_pos().is_some_and(|p| clip_rect.contains(p));
 
                     if is_hovered {
-                        state.hovered_clip = Some(clip.id);
+                        new_hovered_clip = Some(clip.id);
                     }
 
                     // Clip background
@@ -240,7 +248,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         painter.text(
                             Pos2::new(text_rect.left(), text_rect.center().y),
                             egui::Align2::LEFT_CENTER,
-                            clip.name,
+                            &clip.name,
                             egui::FontId::proportional(9.0),
                             Theme::t1(),
                         );
@@ -249,14 +257,15 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     // Trim handles on hover/select
                     if is_selected || is_hovered {
                         // Left handle
-                        let left_handle = Rect::from_min_size(
-                            clip_rect.min,
-                            Vec2::new(4.0, clip_rect.height()),
-                        );
+                        let left_handle =
+                            Rect::from_min_size(clip_rect.min, Vec2::new(4.0, clip_rect.height()));
                         painter.rect_filled(
                             left_handle,
                             Rounding {
-                                nw: 7.0, sw: 7.0, ne: 0.0, se: 0.0,
+                                nw: 7.0,
+                                sw: 7.0,
+                                ne: 0.0,
+                                se: 0.0,
                             },
                             Theme::with_alpha(clip.color, 60),
                         );
@@ -268,12 +277,16 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         painter.rect_filled(
                             right_handle,
                             Rounding {
-                                nw: 0.0, sw: 0.0, ne: 7.0, se: 7.0,
+                                nw: 0.0,
+                                sw: 0.0,
+                                ne: 7.0,
+                                se: 7.0,
                             },
                             Theme::with_alpha(clip.color, 60),
                         );
                     }
                 }
+                state.hovered_clip = new_hovered_clip;
 
                 // Marker lines
                 for marker in &state.markers {
@@ -346,7 +359,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     if let Some(pos) = response.interact_pointer_pos() {
                         // Check if clicking on a clip
                         let mut clicked_clip = None;
-                        for clip in CLIPS {
+                        for clip in &state.clips {
                             let clip_left = rect.left() + clip.start * state.zoom - state.scroll_x;
                             let clip_width = (clip.dur * state.zoom).max(20.0);
                             let clip_top = tracks_top + clip.track as f32 * TRACK_HEIGHT + 3.0;
@@ -406,29 +419,50 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
             ui.spacing_mut().item_spacing = Vec2::new(8.0, 0.0);
 
             // Snap toggle
-            let snap_label_color = if state.snap_enabled { Theme::t1() } else { Theme::t3() };
+            let snap_label_color = if state.snap_enabled {
+                Theme::t1()
+            } else {
+                Theme::t3()
+            };
             if draw_mini_toggle(ui, state.snap_enabled) {
                 state.snap_enabled = !state.snap_enabled;
                 actions.push(TimelineAction::ToggleSnap);
             }
-            ui.label(egui::RichText::new("Snap").size(10.5).color(snap_label_color));
+            ui.label(
+                egui::RichText::new("Snap")
+                    .size(10.5)
+                    .color(snap_label_color),
+            );
 
             ui.add_space(8.0);
 
             // Ripple toggle
-            let ripple_label_color = if state.ripple_enabled { Theme::t1() } else { Theme::t3() };
+            let ripple_label_color = if state.ripple_enabled {
+                Theme::t1()
+            } else {
+                Theme::t3()
+            };
             if draw_mini_toggle(ui, state.ripple_enabled) {
                 state.ripple_enabled = !state.ripple_enabled;
                 actions.push(TimelineAction::ToggleRipple);
             }
-            ui.label(egui::RichText::new("Ripple").size(10.5).color(ripple_label_color));
+            ui.label(
+                egui::RichText::new("Ripple")
+                    .size(10.5)
+                    .color(ripple_label_color),
+            );
 
             ui.add_space(12.0);
 
             // Timecode
             let ph = state.playhead as i32;
-            let total = 440;
-            let fps_int = state.fps.round() as i32;
+            let total = state
+                .clips
+                .iter()
+                .map(|c| (c.start + c.dur) as i32)
+                .max()
+                .unwrap_or(0);
+            let fps_int = (state.fps.round() as i32).max(1);
             let fmt = |f: i32| -> String {
                 let s = f / fps_int;
                 let ff = f % fps_int;
@@ -445,7 +479,8 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
 
             // Separator
             ui.add_space(4.0);
-            let (sep_resp, sep_painter) = ui.allocate_painter(Vec2::new(1.0, 12.0), egui::Sense::hover());
+            let (sep_resp, sep_painter) =
+                ui.allocate_painter(Vec2::new(1.0, 12.0), egui::Sense::hover());
             sep_painter.rect_filled(
                 sep_resp.rect,
                 0.0,
@@ -454,9 +489,14 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
             ui.add_space(4.0);
 
             // Zoom controls
-            if ui.small_button(
-                egui::RichText::new("\u{2212}").size(12.0).color(Theme::t3()),
-            ).clicked() {
+            if ui
+                .small_button(
+                    egui::RichText::new("\u{2212}")
+                        .size(12.0)
+                        .color(Theme::t3()),
+                )
+                .clicked()
+            {
                 state.zoom = (state.zoom - 0.2).max(0.4);
                 actions.push(TimelineAction::ZoomOut);
             }
@@ -465,10 +505,7 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
             let (zoom_resp, zoom_painter) =
                 ui.allocate_painter(Vec2::new(50.0, 14.0), egui::Sense::click_and_drag());
             let zoom_rect = zoom_resp.rect;
-            let bar_rect = Rect::from_center_size(
-                zoom_rect.center(),
-                Vec2::new(50.0, 3.0),
-            );
+            let bar_rect = Rect::from_center_size(zoom_rect.center(), Vec2::new(50.0, 3.0));
             zoom_painter.rect_filled(
                 bar_rect,
                 Rounding::same(1.5),
@@ -489,9 +526,10 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
                 }
             }
 
-            if ui.small_button(
-                egui::RichText::new("+").size(12.0).color(Theme::t3()),
-            ).clicked() {
+            if ui
+                .small_button(egui::RichText::new("+").size(12.0).color(Theme::t3()))
+                .clicked()
+            {
                 state.zoom = (state.zoom + 0.2).min(3.0);
                 actions.push(TimelineAction::ZoomIn);
             }
@@ -510,7 +548,10 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
 
         let header_frame = egui::Frame::none()
             .fill(Theme::bg1())
-            .stroke(Stroke::new(0.5, Color32::from_rgba_premultiplied(255, 255, 255, 4)))
+            .stroke(Stroke::new(
+                0.5,
+                Color32::from_rgba_premultiplied(255, 255, 255, 4),
+            ))
             .inner_margin(egui::Margin::symmetric(4.0, 0.0));
 
         header_frame.show(ui, |ui| {
@@ -530,11 +571,7 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
                 } else {
                     Theme::with_alpha(Theme::t3(), 102)
                 };
-                let mute_resp = ui.label(
-                    egui::RichText::new("M")
-                        .size(7.0)
-                        .color(mute_color),
-                );
+                let mute_resp = ui.label(egui::RichText::new("M").size(7.0).color(mute_color));
                 if mute_resp.clicked() {
                     state.track_muted[i] = !state.track_muted[i];
                 }
@@ -546,7 +583,11 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
 fn draw_ruler(painter: &egui::Painter, rect: Rect, state: &TimelineState) {
     let fps = state.fps;
     // Background
-    painter.rect_filled(rect, 0.0, Color32::from_rgba_premultiplied(255, 255, 255, 2));
+    painter.rect_filled(
+        rect,
+        0.0,
+        Color32::from_rgba_premultiplied(255, 255, 255, 2),
+    );
     // Bottom border
     painter.line_segment(
         [
@@ -578,7 +619,10 @@ fn draw_ruler(painter: &egui::Painter, rect: Rect, state: &TimelineState) {
                 Pos2::new(x, rect.bottom() - tick_height),
                 Pos2::new(x, rect.bottom()),
             ],
-            Stroke::new(0.5, Color32::from_rgba_premultiplied(255, 255, 255, tick_alpha)),
+            Stroke::new(
+                0.5,
+                Color32::from_rgba_premultiplied(255, 255, 255, tick_alpha),
+            ),
         );
 
         if is_label && i >= 0 {
@@ -603,7 +647,10 @@ fn draw_mini_toggle(ui: &mut egui::Ui, on: bool) -> bool {
     let rect = resp.rect;
 
     let (track_bg, track_border) = if on {
-        (Theme::with_alpha(Theme::accent(), 102), Theme::with_alpha(Theme::accent(), 153))
+        (
+            Theme::with_alpha(Theme::accent(), 102),
+            Theme::with_alpha(Theme::accent(), 153),
+        )
     } else {
         (
             Color32::from_rgba_premultiplied(255, 255, 255, 15),
@@ -613,8 +660,16 @@ fn draw_mini_toggle(ui: &mut egui::Ui, on: bool) -> bool {
     painter.rect_filled(rect, Rounding::same(9.0), track_bg);
     painter.rect_stroke(rect, Rounding::same(9.0), Stroke::new(0.5, track_border));
 
-    let thumb_x = if on { rect.right() - 9.0 } else { rect.left() + 9.0 };
-    let thumb_color = if on { Theme::accent() } else { Color32::from_rgba_premultiplied(255, 255, 255, 64) };
+    let thumb_x = if on {
+        rect.right() - 9.0
+    } else {
+        rect.left() + 9.0
+    };
+    let thumb_color = if on {
+        Theme::accent()
+    } else {
+        Color32::from_rgba_premultiplied(255, 255, 255, 64)
+    };
     painter.circle_filled(Pos2::new(thumb_x, rect.center().y), 7.0, thumb_color);
 
     resp.clicked()
