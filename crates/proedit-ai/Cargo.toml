@@ -5,12 +5,27 @@ edition.workspace = true
 rust-version.workspace = true
 description = "AI features for ProEdit Studio"
 
+[features]
+default = []
+onnx = ["ort", "ndarray"]
+
 [dependencies]
 proedit-core.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio.workspace = true
+crossbeam-channel.workspace = true
+uuid.workspace = true
+parking_lot.workspace = true
+dirs.workspace = true
+which.workspace = true
+num_cpus.workspace = true
 
-# ONNX Runtime for AI models (optional, add when needed)
-# ort = "2.0"
+# Optional ONNX Runtime support (requires onnxruntime shared library)
+ort = { workspace = true, optional = true }
+ndarray = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = "3.10"

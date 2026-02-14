@@ -1,65 +1,69 @@
-//! ProEdit AI - AI features
+//! ProEdit AI — AI-powered features for video editing.
 //!
-//! Provides AI-powered capabilities:
-//! - Auto-rotoscoping (SAM 2)
-//! - Frame interpolation (RIFE)
-//! - AI upscaling (Real-ESRGAN)
-//! - Scene detection
-//! - Text-to-video generation
+//! Provides:
+//! - Scene/cut detection (fallback: frame differencing, optional: TransNetV2 ONNX)
+//! - Audio transcription (whisper.cpp sidecar)
+//! - Filler word and silence detection
+//! - Frame interpolation for AI slow motion (RIFE via ONNX, requires `onnx` feature)
+//! - Model download and cache management
 
-use proedit_core::Result;
+pub mod error;
+pub mod filler_detect;
+pub mod interpolation;
+pub mod model_manager;
+pub mod scene_detect;
+pub mod session;
+pub mod transcribe;
+
+pub use error::{AiError, AiResult};
+pub use model_manager::{ModelId, ModelManager};
+
+use std::path::PathBuf;
 use tracing::info;
 
-/// AI engine state.
+/// Main AI engine — manages models and provides access to AI features.
 pub struct AIEngine {
+    model_manager: ModelManager,
     initialized: bool,
 }
 
 impl AIEngine {
-    /// Create a new AI engine.
-    pub fn new() -> Result<Self> {
-        info!("AI engine created (models not loaded)");
-        Ok(Self { initialized: false })
+    /// Create a new AI engine with a custom cache directory.
+    pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
+        let cache_dir = cache_dir.into();
+        info!(cache_dir = %cache_dir.display(), "AI engine created");
+        Self {
+            model_manager: ModelManager::new(cache_dir),
+            initialized: false,
+        }
     }
 
-    /// Initialize AI models.
-    pub fn initialize(&mut self) -> Result<()> {
-        info!("AI models would be loaded here");
-        self.initialized = true;
-        Ok(())
+    /// Default cache directory for AI models.
+    pub fn default_cache_dir() -> PathBuf {
+        dirs::data_local_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("proedit-studio")
+            .join("models")
     }
 
-    /// Check if AI is initialized.
+    /// Get a reference to the model manager.
+    pub fn model_manager(&self) -> &ModelManager {
+        &self.model_manager
+    }
+
+    /// Check if the engine has been initialized.
     pub fn is_initialized(&self) -> bool {
         self.initialized
     }
 
-    /// Auto-rotoscope a subject (placeholder).
-    pub fn auto_rotoscope(&self, _frame: &[u8], _point: (f32, f32)) -> Result<Vec<u8>> {
-        info!("Auto-rotoscope requested (not implemented)");
-        Ok(Vec::new())
-    }
-
-    /// Interpolate between frames (placeholder).
-    pub fn interpolate_frames(
-        &self,
-        _frame_a: &[u8],
-        _frame_b: &[u8],
-        _t: f32,
-    ) -> Result<Vec<u8>> {
-        info!("Frame interpolation requested (not implemented)");
-        Ok(Vec::new())
-    }
-
-    /// Upscale a frame (placeholder).
-    pub fn upscale(&self, _frame: &[u8], _scale: u32) -> Result<Vec<u8>> {
-        info!("Upscale requested (not implemented)");
-        Ok(Vec::new())
+    /// Mark the engine as initialized.
+    pub fn set_initialized(&mut self) {
+        self.initialized = true;
     }
 }
 
 impl Default for AIEngine {
     fn default() -> Self {
-        Self::new().unwrap_or(Self { initialized: false })
+        Self::new(Self::default_cache_dir())
     }
 }
