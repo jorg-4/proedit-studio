@@ -237,7 +237,10 @@ impl Transform2D {
             inner: self.inner.inverse(),
             translation: [-self.translation[0], -self.translation[1]],
             rotation: -self.rotation,
-            scale: [1.0 / self.scale[0], 1.0 / self.scale[1]],
+            scale: [
+                if self.scale[0] != 0.0 { 1.0 / self.scale[0] } else { 0.0 },
+                if self.scale[1] != 0.0 { 1.0 / self.scale[1] } else { 0.0 },
+            ],
         }
     }
 

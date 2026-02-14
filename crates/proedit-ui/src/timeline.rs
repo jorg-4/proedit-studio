@@ -51,6 +51,8 @@ pub struct Marker {
 
 // ── State ──────────────────────────────────────────────────────
 
+pub const TRACK_COUNT: usize = TRACK_NAMES.len();
+
 pub struct TimelineState {
     pub zoom: f32,
     pub scroll_x: f32,
@@ -59,8 +61,9 @@ pub struct TimelineState {
     pub snap_enabled: bool,
     pub ripple_enabled: bool,
     pub markers: Vec<Marker>,
-    pub track_muted: [bool; 6],
+    pub track_muted: [bool; TRACK_COUNT],
     pub hovered_clip: Option<usize>,
+    pub fps: f32,
 }
 
 impl Default for TimelineState {
@@ -77,8 +80,9 @@ impl Default for TimelineState {
                 Marker { frame: 200.0, color: Theme::accent() },
                 Marker { frame: 350.0, color: Theme::green() },
             ],
-            track_muted: [false; 6],
+            track_muted: [false; TRACK_COUNT],
             hovered_clip: None,
+            fps: 24.0,
         }
     }
 }
@@ -137,7 +141,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
 
                 // Track lanes
                 let tracks_top = rect.top() + RULER_HEIGHT;
-                for i in 0..6 {
+                for i in 0..TRACK_COUNT {
                     let lane_top = tracks_top + i as f32 * TRACK_HEIGHT;
                     let lane_rect = Rect::from_min_size(
                         Pos2::new(rect.left(), lane_top),
@@ -294,7 +298,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         painter.line_segment(
                             [
                                 Pos2::new(mx, tracks_top),
-                                Pos2::new(mx, tracks_top + 6.0 * TRACK_HEIGHT),
+                                Pos2::new(mx, tracks_top + TRACK_COUNT as f32 * TRACK_HEIGHT),
                             ],
                             Stroke::new(1.0, Theme::with_alpha(marker.color, 51)),
                         );
@@ -424,9 +428,10 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
             // Timecode
             let ph = state.playhead as i32;
             let total = 440;
+            let fps_int = state.fps.round() as i32;
             let fmt = |f: i32| -> String {
-                let s = f / 24;
-                let ff = f % 24;
+                let s = f / fps_int;
+                let ff = f % fps_int;
                 let m = s / 60;
                 let ss = s % 60;
                 format!("{:02}:{:02}:{:02}", m, ss, ff)
@@ -539,6 +544,7 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
 }
 
 fn draw_ruler(painter: &egui::Painter, rect: Rect, state: &TimelineState) {
+    let fps = state.fps;
     // Background
     painter.rect_filled(rect, 0.0, Color32::from_rgba_premultiplied(255, 255, 255, 2));
     // Bottom border
@@ -577,7 +583,7 @@ fn draw_ruler(painter: &egui::Painter, rect: Rect, state: &TimelineState) {
 
         if is_label && i >= 0 {
             let frame = i as f32 * 12.0;
-            let secs = frame / 24.0;
+            let secs = frame / fps;
             let label = format!("{:.0}s", secs);
             painter.text(
                 Pos2::new(x + 2.0, rect.top() + 3.0),

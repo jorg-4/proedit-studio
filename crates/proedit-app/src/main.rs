@@ -5,7 +5,7 @@
 
 use anyhow::Result;
 use eframe::egui;
-use proedit_core::{FrameBuffer, FrameRate, RationalTime};
+use proedit_core::{FrameBuffer, FrameRate};
 use proedit_media::VideoDecoder;
 use proedit_timeline::{Project, Sequence};
 use proedit_ui::{
@@ -49,11 +49,9 @@ fn main() -> Result<()> {
 
 struct ProEditApp {
     // Core
-    #[allow(dead_code)]
     project: Project,
     decoder: Option<VideoDecoder>,
     current_frame: Option<FrameBuffer>,
-    playhead: RationalTime,
     playing: bool,
     speed: f32,
     last_frame_time: std::time::Instant,
@@ -102,7 +100,6 @@ impl ProEditApp {
             project,
             decoder,
             current_frame: None,
-            playhead: RationalTime::ZERO,
             playing: false,
             speed: 1.0,
             last_frame_time: std::time::Instant::now(),
@@ -149,7 +146,7 @@ impl ProEditApp {
         self.decoder
             .as_ref()
             .map(|d| d.frame_rate())
-            .unwrap_or(FrameRate::FPS_24)
+            .unwrap_or(self.project.frame_rate)
     }
 
     fn handle_keyboard(&mut self, ctx: &egui::Context) {
@@ -224,6 +221,11 @@ impl eframe::App for ProEditApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let time = self.start_time.elapsed().as_secs_f64();
 
+        // ── Sync fps to UI components ────────────────────────────
+        let fps = self.frame_rate().to_fps_f64() as f32;
+        self.timeline.fps = fps;
+        self.viewer.fps = fps;
+
         // ── Playback ───────────────────────────────────────────
         if self.playing {
             let frame_duration =
@@ -231,7 +233,6 @@ impl eframe::App for ProEditApp {
 
             if self.last_frame_time.elapsed() >= frame_duration {
                 self.decode_next_frame();
-                self.playhead = self.playhead + self.frame_rate().frame_duration();
                 self.timeline.playhead += self.speed;
                 self.last_frame_time = std::time::Instant::now();
             }

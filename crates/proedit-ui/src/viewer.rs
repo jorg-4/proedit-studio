@@ -10,6 +10,7 @@ pub struct ViewerState {
     pub playhead_frames: f32,
     pub speed: f32,
     pub selected_clip: Option<usize>,
+    pub fps: f32,
 }
 
 impl Default for ViewerState {
@@ -19,6 +20,7 @@ impl Default for ViewerState {
             playhead_frames: 0.0,
             speed: 1.0,
             selected_clip: None,
+            fps: 24.0,
         }
     }
 }
@@ -137,8 +139,9 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
 
     // Timecode
     let frames = state.playhead_frames as i32;
-    let secs = frames / 24;
-    let remaining_frames = frames % 24;
+    let fps_int = state.fps.round() as i32;
+    let secs = frames / fps_int;
+    let remaining_frames = frames % fps_int;
     let mins = secs / 60;
     let secs_display = secs % 60;
     let timecode = format!("{:02}:{:02}:{:02}", mins, secs_display, remaining_frames);
@@ -184,7 +187,7 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     painter.text(
         Pos2::new(transport_rect.right() - 14.0, bar_y),
         egui::Align2::RIGHT_CENTER,
-        "24fps",
+        format!("{}fps", state.fps.round() as i32),
         egui::FontId::monospace(9.0),
         Theme::t3(),
     );
