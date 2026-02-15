@@ -278,6 +278,7 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) -> Vec<Insp
                             Rounding::same(Theme::RADIUS),
                             Theme::with_alpha(Theme::purple(), 8),
                         );
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                     }
                 }
             });
@@ -335,6 +336,9 @@ fn collapsible_section(
 
     if header_resp.clicked() {
         *open = !*open;
+    }
+    if header_resp.hovered() {
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
 
     if *open {

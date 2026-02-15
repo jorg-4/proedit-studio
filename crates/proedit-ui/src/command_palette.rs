@@ -125,7 +125,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
     let palette_width = 460.0_f32.min(screen.width() - 40.0);
     let max_height = 400.0_f32.min(screen.height() - 100.0);
 
-    egui::Area::new(egui::Id::new("command_palette"))
+    let area_resp = egui::Area::new(egui::Id::new("command_palette"))
         .order(egui::Order::Foreground)
         .anchor(
             egui::Align2::CENTER_TOP,
@@ -284,6 +284,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                 }
                                 if resp.hovered() {
                                     state.hovered_index = i;
+                                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                                 }
                             }
                         });
@@ -309,6 +310,16 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                     });
                 });
         });
+
+    // ── Click outside to dismiss ────────────────────────────────
+    let palette_rect = area_resp.response.rect;
+    if ctx.input(|i| i.pointer.any_pressed()) {
+        if let Some(pos) = ctx.input(|i| i.pointer.latest_pos()) {
+            if !palette_rect.contains(pos) {
+                state.open = false;
+            }
+        }
+    }
 
     // ── Keyboard navigation ────────────────────────────────────
     ctx.input(|inp| {

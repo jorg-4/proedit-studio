@@ -17,7 +17,8 @@ use proedit_ui::{
     show_export_dialog, show_inspector, show_media_browser, show_timeline, show_top_bar,
     show_viewer, AudioMixerState, ColorWheelsState, CommandPaletteState, CommandRegistry,
     CurveEditorState, EffectsPanelState, ExportDialogAction, ExportDialogState, InspectorState,
-    LeftTab, MediaBrowserState, Page, Theme, TimelineState, TopBarAction, TopBarState, ViewerState,
+    LeftTab, MediaBrowserAction, MediaBrowserState, Page, Theme, TimelineState, TopBarAction,
+    TopBarState, ViewerState,
 };
 use std::path::PathBuf;
 use tracing::{info, Level};
@@ -800,7 +801,14 @@ impl eframe::App for ProEditApp {
             .min_width(180.0)
             .frame(Theme::panel_frame())
             .show(ctx, |ui| match self.top_bar.left_tab {
-                LeftTab::Media => show_media_browser(ui, &mut self.media_browser),
+                LeftTab::Media => {
+                    let browser_actions = show_media_browser(ui, &mut self.media_browser);
+                    for action in browser_actions {
+                        match action {
+                            MediaBrowserAction::ImportMedia => self.import_media(),
+                        }
+                    }
+                }
                 LeftTab::Effects => show_effects_panel(ui, &mut self.effects_panel),
             });
 
@@ -885,6 +893,17 @@ impl eframe::App for ProEditApp {
                 }
                 ExportDialogAction::Cancel => {
                     info!("Export cancelled by user");
+                }
+                ExportDialogAction::Browse => {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .set_title("Export To")
+                        .add_filter("MP4", &["mp4"])
+                        .add_filter("MOV", &["mov"])
+                        .add_filter("MKV", &["mkv"])
+                        .save_file()
+                    {
+                        self.export_dialog.output_path = path.display().to_string();
+                    }
                 }
             }
         }

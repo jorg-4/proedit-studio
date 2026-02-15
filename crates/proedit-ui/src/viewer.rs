@@ -146,12 +146,19 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         btn_color,
     );
 
-    // Click play/pause
+    // Click play/pause (slightly enlarged hit area for usability)
     if response.clicked() {
-        let click_pos = response.interact_pointer_pos();
-        if let Some(pos) = click_pos {
-            if btn_rect.contains(pos) {
+        if let Some(pos) = response.interact_pointer_pos() {
+            if btn_rect.expand(6.0).contains(pos) {
                 actions.push(ViewerAction::TogglePlay);
+            }
+        }
+    }
+    // Hover cursor on button
+    if response.hovered() {
+        if let Some(pos) = response.hover_pos() {
+            if btn_rect.expand(6.0).contains(pos) {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
         }
     }

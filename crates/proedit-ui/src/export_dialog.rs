@@ -48,6 +48,8 @@ pub enum ExportDialogAction {
     },
     /// User clicked "Cancel" during an active export.
     Cancel,
+    /// User clicked "Browse" to pick an output file.
+    Browse,
 }
 
 // ── Rendering ───────────────────────────────────────────────────
@@ -114,7 +116,7 @@ pub fn show_export_dialog(
                     .add_enabled(!state.exporting, egui::Button::new("Browse"))
                     .clicked()
                 {
-                    // Placeholder — actual rfd dialog handled by the app layer
+                    actions.push(ExportDialogAction::Browse);
                 }
             });
 

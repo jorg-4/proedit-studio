@@ -55,7 +55,26 @@ pub struct MediaBrowserState {
 
 // ── Rendering ──────────────────────────────────────────────────
 
-pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
+/// Actions emitted by the media browser.
+#[derive(Debug)]
+pub enum MediaBrowserAction {
+    ImportMedia,
+}
+
+pub fn show_media_browser(
+    ui: &mut egui::Ui,
+    state: &mut MediaBrowserState,
+) -> Vec<MediaBrowserAction> {
+    let mut actions = Vec::new();
+    show_media_browser_inner(ui, state, &mut actions);
+    actions
+}
+
+fn show_media_browser_inner(
+    ui: &mut egui::Ui,
+    state: &mut MediaBrowserState,
+    actions: &mut Vec<MediaBrowserAction>,
+) {
     ui.spacing_mut().item_spacing = Vec2::new(0.0, 6.0);
 
     // ── Search bar ─────────────────────────────────────────
@@ -120,6 +139,9 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
 
             if resp.clicked() {
                 state.active_filter = i;
+            }
+            if resp.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
         }
     });
@@ -246,12 +268,16 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
                 })
                 .response;
 
+            if import_resp.clicked() {
+                actions.push(MediaBrowserAction::ImportMedia);
+            }
             if import_resp.hovered() {
                 ui.painter().rect_stroke(
                     import_resp.rect,
                     Rounding::same(Theme::RADIUS),
                     Stroke::new(Theme::STROKE_EMPHASIS, Theme::accent()),
                 );
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
         });
 }

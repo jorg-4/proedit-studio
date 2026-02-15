@@ -188,6 +188,9 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
         if header_resp.clicked() {
             state.expanded[cat_idx] = !is_expanded;
         }
+        if header_resp.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
 
         // Items
         if is_expanded {
@@ -234,6 +237,7 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
                     };
                     ui.painter()
                         .rect_filled(resp.rect, Rounding::same(Theme::RADIUS), hover_bg);
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                 }
             }
         }

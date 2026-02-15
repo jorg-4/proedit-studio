@@ -37,7 +37,7 @@ pub use curve_editor::{show_curve_editor, CurveEditorAction, CurveEditorState};
 pub use effects_panel::{show_effects_panel, EffectsPanelState};
 pub use export_dialog::{show_export_dialog, ExportDialogAction, ExportDialogState};
 pub use inspector::{show_inspector, InspectorAction, InspectorClip, InspectorState};
-pub use media_browser::{show_media_browser, MediaBrowserState};
+pub use media_browser::{show_media_browser, MediaBrowserAction, MediaBrowserState};
 pub use snapping::SnappingEngine;
 pub use theme::Theme;
 pub use timeline::{show_timeline, TimelineState};

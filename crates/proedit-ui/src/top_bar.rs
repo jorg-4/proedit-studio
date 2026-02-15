@@ -126,14 +126,14 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
     ui.horizontal_centered(|ui| {
         ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
 
-        // ── Traffic lights (macOS chrome — domain-specific) ──
-        let tl_colors = [
-            Color32::from_rgb(255, 95, 87),
-            Color32::from_rgb(255, 189, 46),
-            Color32::from_rgb(39, 201, 63),
+        // ── Traffic lights (macOS chrome — fully functional) ──
+        let tl_data: &[(Color32, &str)] = &[
+            (Color32::from_rgb(255, 95, 87), "\u{00D7}"),  // × close
+            (Color32::from_rgb(255, 189, 46), "\u{2212}"), // − minimize
+            (Color32::from_rgb(39, 201, 63), "+"),         // + maximize
         ];
-        for color in &tl_colors {
-            let (resp, painter) = ui.allocate_painter(Vec2::splat(12.0), Sense::hover());
+        for (idx, (color, symbol)) in tl_data.iter().enumerate() {
+            let (resp, painter) = ui.allocate_painter(Vec2::splat(12.0), Sense::click());
             let center = resp.rect.center();
             painter.circle_filled(center, 6.0, *color);
             painter.circle_stroke(
@@ -141,6 +141,31 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                 6.0,
                 Stroke::new(Theme::STROKE_SUBTLE, Theme::with_alpha(*color, 85)),
             );
+            // Show symbol on hover
+            if resp.hovered() {
+                painter.text(
+                    center,
+                    egui::Align2::CENTER_CENTER,
+                    *symbol,
+                    egui::FontId::proportional(9.0),
+                    Color32::from_rgba_premultiplied(60, 20, 20, 200),
+                );
+            }
+            // Handle click
+            if resp.clicked() {
+                match idx {
+                    0 => ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close),
+                    1 => ui
+                        .ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Minimized(true)),
+                    2 => {
+                        let maximized = ui.ctx().input(|i| i.viewport().maximized.unwrap_or(false));
+                        ui.ctx()
+                            .send_viewport_cmd(egui::ViewportCommand::Maximized(!maximized));
+                    }
+                    _ => {}
+                }
+            }
         }
 
         ui.add_space(Theme::SPACE_SM);
@@ -213,8 +238,12 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
             });
         });
 
-        // ── Spacer to centre pages ────────────────────────
-        ui.add_space(ui.available_width() * 0.1);
+        // ── Drag zone spacer (enables window movement) ────
+        let spacer_w = (ui.available_width() * 0.1).max(10.0);
+        let (drag_resp, _) = ui.allocate_painter(Vec2::new(spacer_w, height), Sense::drag());
+        if drag_resp.drag_started() {
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
+        }
 
         // ── Page navigation ────────────────────────────────
         let nav_frame = egui::Frame::none()
@@ -269,8 +298,12 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
             });
         });
 
-        // ── Spacer ─────────────────────────────────────────
-        ui.add_space(ui.available_width() - 160.0_f32.max(0.0));
+        // ── Drag zone spacer (enables window movement) ────
+        let right_spacer = (ui.available_width() - 160.0).max(10.0);
+        let (drag_resp2, _) = ui.allocate_painter(Vec2::new(right_spacer, height), Sense::drag());
+        if drag_resp2.drag_started() {
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
+        }
 
         // ── Right tool buttons ─────────────────────────────
         struct ToolBtn {
@@ -317,7 +350,7 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
             let resp = btn
                 .show(ui, |ui| {
                     let size = Vec2::new(30.0, 28.0);
-                    let (r, _p) = ui.allocate_painter(size, Sense::hover());
+                    let (r, _p) = ui.allocate_painter(size, Sense::click());
                     ui.painter().text(
                         r.rect.center(),
                         egui::Align2::CENTER_CENTER,
