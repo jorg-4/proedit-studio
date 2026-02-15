@@ -1,7 +1,7 @@
-//! Viewport / viewer with animated gradient background and transport overlay.
+//! Viewport / viewer with gradient background and transport overlay.
 
 use crate::theme::Theme;
-use egui::{self, Pos2, Rect, Rounding, Vec2};
+use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 
 // ── Local domain constants ──────────────────────────────────────
 const PLAY_ICON_SIZE: f32 = 40.0;
@@ -46,8 +46,23 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     let (response, painter) = ui.allocate_painter(available, egui::Sense::click());
     let rect = response.rect;
 
-    // ── Background ─────────────────────────────────────────
-    painter.rect_filled(rect, 0.0, Theme::bg());
+    // ── Background — dark gradient-like fill ─────────────────
+    painter.rect_filled(rect, 0.0, Color32::from_rgb(11, 15, 23));
+
+    // Subtle blue glow in center area
+    painter.circle_filled(
+        Pos2::new(rect.center().x * 0.85, rect.center().y * 0.85),
+        rect.width() * 0.18,
+        Color32::from_rgba_premultiplied(2, 3, 6, 6),
+    );
+
+    // Safe area guides (10% inset)
+    let safe_rect = rect.shrink2(rect.size() * 0.1);
+    painter.rect_stroke(
+        safe_rect,
+        Rounding::same(2.0),
+        Stroke::new(0.5, Color32::from_rgba_premultiplied(7, 7, 7, 7)),
+    );
 
     // ── Idle / empty hint ─────────────────────────────────
     if !state.has_media {
@@ -89,25 +104,36 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         rect.max,
     );
 
-    // Gradient backdrop
-    // Top transparent → bottom dark
-    painter.rect_filled(transport_rect, 0.0, Theme::scrim());
+    // Gradient backdrop — darker scrim
+    painter.rect_filled(
+        transport_rect,
+        0.0,
+        Color32::from_rgba_premultiplied(0, 0, 0, 153), // rgba(0,0,0,.6)
+    );
 
     let bar_y = transport_rect.center().y;
     let bar_left = transport_rect.left() + 14.0;
 
-    // Play/pause button
+    // Play/pause button — semi-transparent glass-like fill
     let btn_size = 30.0;
     let btn_rect = Rect::from_center_size(
         Pos2::new(bar_left + btn_size * 0.5, bar_y),
         Vec2::splat(btn_size),
     );
     let (btn_bg, btn_color, btn_icon) = if state.playing {
-        (Theme::red(), Theme::t1(), "\u{23F8}") // ⏸
+        (
+            Theme::with_alpha(Theme::red(), 38), // rgba(255,88,85,.15)
+            Theme::t1(),
+            "\u{23F8}",
+        )
     } else {
-        (Theme::accent(), Theme::t1(), "\u{25B6}") // ▶
+        (
+            Theme::with_alpha(Theme::accent(), 31), // rgba(78,133,255,.12)
+            Theme::t1(),
+            "\u{25B6}",
+        )
     };
-    painter.rect_filled(btn_rect, Rounding::same(Theme::RADIUS), btn_bg);
+    painter.rect_filled(btn_rect, Rounding::same(8.0), btn_bg);
     painter.text(
         btn_rect.center(),
         egui::Align2::CENTER_CENTER,
@@ -150,26 +176,27 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         Theme::t1(),
     );
 
-    // Speed badge
+    // Speed badge — color changes for reverse playback
     if (state.speed - 1.0).abs() > 0.01 {
         let speed_text = format!("{:.1}x", state.speed);
         let speed_x = bar_left + btn_size + 90.0;
         let badge_rect = Rect::from_center_size(Pos2::new(speed_x, bar_y), Vec2::new(36.0, 18.0));
-        painter.rect_filled(
-            badge_rect,
-            Rounding::same(Theme::RADIUS),
-            Theme::accent_subtle(),
-        );
+        let (badge_bg, badge_color) = if state.speed < 0.0 {
+            (Theme::with_alpha(Theme::red(), 38), Theme::red())
+        } else {
+            (Theme::with_alpha(Theme::accent(), 31), Theme::accent())
+        };
+        painter.rect_filled(badge_rect, Rounding::same(Theme::RADIUS), badge_bg);
         painter.text(
             badge_rect.center(),
             egui::Align2::CENTER_CENTER,
             &speed_text,
             egui::FontId::proportional(Theme::FONT_XS),
-            Theme::accent(),
+            badge_color,
         );
     }
 
-    // Recording dot (when playing)
+    // Recording dot (when playing) — pulsing
     if state.playing {
         let pulse = crate::anim::pulse(time, 1.5);
         let dot_x = transport_rect.right() - 60.0;
@@ -189,7 +216,7 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         Theme::t3(),
     );
 
-    // Tool buttons when clip selected
+    // Tool buttons when clip selected — glass pill
     if state.selected_clip.is_some() {
         let tool_icons = ["\u{2702}", "\u{25D1}", "fx", "\u{26A1}", "\u{2726}"];
         let tool_colors = [
@@ -200,10 +227,26 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
             Theme::purple(),
         ];
         let tools_start_x = rect.center().x - 80.0;
+
+        // Glass pill background
+        let pill_rect = Rect::from_min_size(
+            Pos2::new(tools_start_x - 10.0, bar_y - 14.0),
+            Vec2::new(tool_icons.len() as f32 * 34.0 + 16.0, 28.0),
+        );
+        painter.rect_filled(
+            pill_rect,
+            Rounding::same(8.0),
+            Color32::from_rgba_premultiplied(5, 5, 9, 90),
+        );
+        painter.rect_stroke(
+            pill_rect,
+            Rounding::same(8.0),
+            Stroke::new(0.5, Theme::white_06()),
+        );
+
         for (i, (icon, color)) in tool_icons.iter().zip(tool_colors.iter()).enumerate() {
             let tx = tools_start_x + i as f32 * 34.0;
             let tool_rect = Rect::from_center_size(Pos2::new(tx, bar_y), Vec2::new(28.0, 24.0));
-            painter.rect_filled(tool_rect, Rounding::same(Theme::RADIUS), Theme::white_06());
             painter.text(
                 tool_rect.center(),
                 egui::Align2::CENTER_CENTER,

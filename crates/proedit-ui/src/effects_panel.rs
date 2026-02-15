@@ -155,12 +155,17 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
         let is_expanded = state.expanded[cat_idx];
         let chevron = if is_expanded { "\u{25BE}" } else { "\u{25B8}" };
 
-        // Use a proper Button for reliable click detection
+        Theme::draw_separator(ui);
+
         let header_text = format!("{} {}  ({})", chevron, cat.name, cat.items.len());
         let header_btn = egui::Button::new(
             egui::RichText::new(header_text)
                 .size(Theme::FONT_XS)
-                .color(Theme::t3())
+                .color(if is_expanded {
+                    Theme::t2()
+                } else {
+                    Theme::t3()
+                })
                 .strong(),
         )
         .fill(egui::Color32::TRANSPARENT)
@@ -176,9 +181,14 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
             for item in cat.items {
                 let icon = if item.is_ai { "\u{2726}" } else { "\u{25D1}" };
                 let text_color = if item.is_ai {
-                    Theme::with_alpha(Theme::purple(), 204)
+                    Theme::purple()
                 } else {
                     Theme::t2()
+                };
+                let hover_bg = if item.is_ai {
+                    Theme::with_alpha(Theme::purple(), 12)
+                } else {
+                    Theme::white_02()
                 };
 
                 let item_text = format!("  {} {}", icon, item.name);
@@ -191,10 +201,14 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
                 .stroke(Stroke::NONE)
                 .rounding(Rounding::same(Theme::RADIUS));
 
-                let _resp = ui.add(item_btn);
+                let resp = ui.add(item_btn);
+                if resp.hovered() {
+                    ui.painter()
+                        .rect_filled(resp.rect, Rounding::same(Theme::RADIUS), hover_bg);
+                }
             }
         }
 
-        ui.add_space(Theme::SPACE_XS);
+        ui.add_space(2.0);
     }
 }

@@ -5,39 +5,48 @@ use egui::{self, Color32, Pos2, Rounding, Stroke, Vec2};
 
 /// Toggle switch widget. Returns `true` if clicked (toggled).
 pub fn toggle_switch(ui: &mut egui::Ui, on: bool) -> bool {
-    let desired_size = Vec2::new(32.0, 18.0);
+    let desired_size = Vec2::new(30.0, 16.0);
     let (resp, painter) = ui.allocate_painter(desired_size, egui::Sense::click());
     let rect = resp.rect;
 
-    // Track — pill shape uses height/2 for rounding (NOT Theme::RADIUS)
+    // Track — pill shape
     let pill_rounding = Rounding::same(rect.height() / 2.0);
     let (track_bg, track_border) = if on {
         (
-            Theme::with_alpha(Theme::accent(), 102),
-            Theme::with_alpha(Theme::accent(), 153),
+            Theme::with_alpha(Theme::accent(), 90),
+            Theme::with_alpha(Theme::accent(), 130),
         )
     } else {
-        (Theme::white_06(), Theme::white_08())
+        (Theme::white_04(), Theme::white_08())
     };
     painter.rect_filled(rect, pill_rounding, track_bg);
-    painter.rect_stroke(
-        rect,
-        pill_rounding,
-        Stroke::new(Theme::STROKE_SUBTLE, track_border),
-    );
+    painter.rect_stroke(rect, pill_rounding, Stroke::new(0.5, track_border));
 
     // Thumb
+    let thumb_radius = 6.0;
     let thumb_x = if on {
-        rect.right() - 9.0
+        rect.right() - thumb_radius - 2.0
     } else {
-        rect.left() + 9.0
+        rect.left() + thumb_radius + 2.0
     };
     let thumb_color = if on {
         Theme::accent()
     } else {
         Theme::white_25()
     };
-    painter.circle_filled(Pos2::new(thumb_x, rect.center().y), 7.0, thumb_color);
+    painter.circle_filled(
+        Pos2::new(thumb_x, rect.center().y),
+        thumb_radius,
+        thumb_color,
+    );
+    // Thumb shadow
+    if on {
+        painter.circle_stroke(
+            Pos2::new(thumb_x, rect.center().y),
+            thumb_radius + 1.0,
+            Stroke::new(1.0, Theme::with_alpha(Theme::accent(), 30)),
+        );
+    }
 
     resp.clicked()
 }
@@ -76,7 +85,7 @@ pub fn themed_slider(
             egui::Rect::from_center_size(track_rect.center(), Vec2::new(track_width, track_height));
 
         // Background track
-        track_painter.rect_filled(bar_rect, Rounding::same(2.0), Theme::white_04());
+        track_painter.rect_filled(bar_rect, Rounding::same(2.0), Theme::white_06());
 
         // Fill
         let min = *range.start();
@@ -91,14 +100,20 @@ pub fn themed_slider(
             egui::Rect::from_min_size(bar_rect.min, Vec2::new(fill_width, track_height));
         track_painter.rect_filled(fill_rect, Rounding::same(2.0), accent);
 
-        // Thumb
+        // Thumb — glass effect
         let thumb_x = bar_rect.left() + fill_width;
         let thumb_center = Pos2::new(thumb_x, bar_rect.center().y);
         track_painter.circle_filled(thumb_center, 5.0, Color32::WHITE);
         track_painter.circle_stroke(
             thumb_center,
             5.0,
-            Stroke::new(1.5, Color32::from_rgba_premultiplied(0, 0, 0, 77)),
+            Stroke::new(1.0, Color32::from_rgba_premultiplied(0, 0, 0, 60)),
+        );
+        // Glow around thumb
+        track_painter.circle_stroke(
+            thumb_center,
+            7.0,
+            Stroke::new(1.0, Theme::with_alpha(accent, 25)),
         );
 
         // Interaction

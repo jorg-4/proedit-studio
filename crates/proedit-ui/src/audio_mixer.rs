@@ -122,7 +122,13 @@ fn mixer_slider(ui: &mut egui::Ui, label: &str, value: &mut f32, accent: Color32
         track_painter.rect_filled(fill_rect, Rounding::same(2.0), accent);
 
         let thumb_x = bar_rect.left() + frac * bar_rect.width();
-        track_painter.circle_filled(Pos2::new(thumb_x, bar_rect.center().y), 5.0, Color32::WHITE);
+        let thumb_center = Pos2::new(thumb_x, bar_rect.center().y);
+        track_painter.circle_filled(thumb_center, 5.0, Color32::WHITE);
+        track_painter.circle_stroke(
+            thumb_center,
+            5.0,
+            egui::Stroke::new(1.0, Color32::from_rgba_premultiplied(0, 0, 0, 60)),
+        );
 
         if track_resp.dragged() || track_resp.clicked() {
             if let Some(pos) = track_resp.interact_pointer_pos() {

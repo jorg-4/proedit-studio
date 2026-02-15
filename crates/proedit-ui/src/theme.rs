@@ -28,52 +28,52 @@ impl Theme {
     pub const STROKE_EMPHASIS: f32 = 1.0;
     pub const DIVIDER_WIDTH: f32 = 1.0;
 
-    // ── Backgrounds ────────────────────────────────────────────
+    // ── Backgrounds (deep blue-black matching reference) ────────
     pub const fn bg() -> Color32 {
-        Color32::from_rgb(18, 18, 22)
+        Color32::from_rgb(5, 5, 8)
     }
     pub const fn bg1() -> Color32 {
-        Color32::from_rgb(28, 28, 34)
+        Color32::from_rgb(11, 11, 18)
     }
     pub const fn bg2() -> Color32 {
-        Color32::from_rgb(35, 35, 42)
+        Color32::from_rgb(18, 18, 30)
     }
     pub const fn bg3() -> Color32 {
-        Color32::from_rgb(45, 45, 55)
+        Color32::from_rgb(26, 26, 43)
     }
     pub const fn bg4() -> Color32 {
-        Color32::from_rgb(55, 55, 68)
+        Color32::from_rgb(34, 34, 58)
     }
     /// Text inputs, search fields.
     pub const fn input_bg() -> Color32 {
-        Color32::from_rgb(22, 22, 28)
+        Color32::from_rgb(8, 8, 14)
     }
 
-    // ── Text (opacity-based white) ─────────────────────────────
+    // ── Text (solid blue-tinted grays matching reference) ──────
     pub const fn t1() -> Color32 {
-        Color32::from_rgba_premultiplied(235, 235, 235, 235)
+        Color32::from_rgb(244, 244, 252)
     }
     pub const fn t2() -> Color32 {
-        Color32::from_rgba_premultiplied(153, 153, 153, 153)
+        Color32::from_rgb(152, 152, 180)
     }
     pub const fn t3() -> Color32 {
-        Color32::from_rgba_premultiplied(89, 89, 89, 89)
+        Color32::from_rgb(94, 94, 120)
     }
     pub const fn t4() -> Color32 {
-        Color32::from_rgba_premultiplied(38, 38, 38, 38)
+        Color32::from_rgb(62, 62, 88)
     }
 
     // ── Accent ─────────────────────────────────────────────────
     pub const fn accent() -> Color32 {
-        Color32::from_rgb(86, 130, 255)
+        Color32::from_rgb(78, 133, 255)
     }
-    /// Accent @ 8% — subtle active fill.
+    /// Accent @ 14% — subtle active fill.
     pub const fn accent_subtle() -> Color32 {
-        Color32::from_rgba_premultiplied(7, 10, 20, 20)
+        Color32::from_rgba_premultiplied(11, 19, 36, 36)
     }
-    /// Accent @ 15% — hovered widget stroke.
+    /// Accent @ 28% — hovered widget / glow.
     pub const fn accent_hover() -> Color32 {
-        Color32::from_rgba_premultiplied(13, 20, 38, 38)
+        Color32::from_rgba_premultiplied(22, 37, 71, 71)
     }
 
     // ── White-alpha overlay helpers ────────────────────────────
@@ -104,9 +104,9 @@ impl Theme {
     pub const fn scrim() -> Color32 {
         Color32::from_rgba_premultiplied(0, 0, 0, 102)
     }
-    /// Section separators — white @ 6%.
+    /// Section separators — white @ 4%.
     pub const fn divider() -> Color32 {
-        Color32::from_rgba_premultiplied(15, 15, 15, 15)
+        Color32::from_rgba_premultiplied(10, 10, 10, 10)
     }
 
     // ── Semantic colors ────────────────────────────────────────
@@ -159,6 +159,7 @@ impl Theme {
     pub fn panel_frame() -> egui::Frame {
         egui::Frame::none()
             .fill(Self::bg1())
+            .stroke(Stroke::new(Self::STROKE_SUBTLE, Self::white_04()))
             .inner_margin(egui::Margin::same(Self::SPACE_SM))
     }
 
@@ -241,22 +242,22 @@ impl Theme {
     /// Glass-effect frame for floating panels.
     pub fn glass_frame() -> egui::Frame {
         egui::Frame::none()
-            .fill(Color32::from_rgba_premultiplied(8, 8, 14, 148))
-            .stroke(Stroke::new(Self::STROKE_SUBTLE, Self::white_08()))
+            .fill(Color32::from_rgba_premultiplied(10, 10, 18, 200))
+            .stroke(Stroke::new(Self::STROKE_SUBTLE, Self::white_10()))
             .rounding(Rounding::same(Self::RADIUS_LG))
             .inner_margin(egui::Margin::same(14.0))
             .shadow(egui::epaint::Shadow {
-                offset: Vec2::new(0.0, 8.0),
-                blur: 32.0,
+                offset: Vec2::new(0.0, 12.0),
+                blur: 40.0,
                 spread: 0.0,
-                color: Color32::from_rgba_premultiplied(0, 0, 0, 100),
+                color: Color32::from_rgba_premultiplied(0, 0, 0, 140),
             })
     }
 
     /// Frame for top bar.
     pub fn top_bar_frame() -> egui::Frame {
         egui::Frame::none()
-            .fill(Self::bg1())
+            .fill(Color32::from_rgba_premultiplied(8, 8, 14, 230))
             .stroke(Stroke::new(Self::STROKE_SUBTLE, Self::white_06()))
             .inner_margin(egui::Margin::symmetric(12.0, 0.0))
     }

@@ -128,18 +128,19 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
 
         // ── Traffic lights (macOS chrome — fully functional) ──
         let tl_data: &[(Color32, &str)] = &[
-            (Color32::from_rgb(255, 95, 87), "\u{00D7}"),  // × close
+            (Theme::red(), "\u{00D7}"),                    // × close
             (Color32::from_rgb(255, 189, 46), "\u{2212}"), // − minimize
             (Color32::from_rgb(39, 201, 63), "+"),         // + maximize
         ];
         for (idx, (color, symbol)) in tl_data.iter().enumerate() {
-            let (resp, painter) = ui.allocate_painter(Vec2::splat(12.0), Sense::click());
+            let (resp, painter) = ui.allocate_painter(Vec2::splat(13.0), Sense::click());
             let center = resp.rect.center();
             painter.circle_filled(center, 6.0, *color);
+            // Darker ring for depth
             painter.circle_stroke(
                 center,
                 6.0,
-                Stroke::new(Theme::STROKE_SUBTLE, Theme::with_alpha(*color, 85)),
+                Stroke::new(0.5, Theme::with_alpha(*color, 140)),
             );
             // Show symbol on hover
             if resp.hovered() {
@@ -148,7 +149,7 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                     egui::Align2::CENTER_CENTER,
                     *symbol,
                     egui::FontId::proportional(9.0),
-                    Color32::from_rgba_premultiplied(60, 20, 20, 200),
+                    Color32::from_rgba_premultiplied(40, 15, 15, 210),
                 );
             }
             // Handle click
@@ -172,23 +173,33 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
 
         // ── Logo ───────────────────────────────────────────
         ui.label(
-            egui::RichText::new("ProEdit")
+            egui::RichText::new("Pro")
+                .color(Theme::accent())
+                .size(Theme::FONT_MD)
+                .strong(),
+        );
+        ui.spacing_mut().item_spacing = Vec2::new(0.0, 0.0);
+        ui.label(
+            egui::RichText::new("Edit")
                 .color(Theme::t1())
                 .size(Theme::FONT_MD)
                 .strong(),
         );
+        ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_XS, 0.0);
         ui.label(
             egui::RichText::new("Studio")
-                .color(Theme::t3())
-                .size(Theme::FONT_MD),
+                .color(Theme::t4())
+                .size(Theme::FONT_XS),
         );
+        ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
 
         ui.add_space(Theme::SPACE_MD);
 
         // ── Left panel tabs ────────────────────────────────
         let tab_frame = egui::Frame::none()
-            .fill(Theme::input_bg())
-            .rounding(Rounding::same(Theme::RADIUS))
+            .fill(Color32::from_rgba_premultiplied(4, 4, 7, 160))
+            .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_06()))
+            .rounding(Rounding::same(Theme::RADIUS_LG))
             .inner_margin(egui::Margin::same(2.0));
 
         tab_frame.show(ui, |ui| {
@@ -206,8 +217,12 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                     } else {
                         Color32::TRANSPARENT
                     };
+                    let border = if is_active {
+                        Stroke::new(Theme::STROKE_SUBTLE, Theme::with_alpha(Theme::accent(), 50))
+                    } else {
+                        Stroke::NONE
+                    };
 
-                    // Use a Button directly instead of Frame for reliable click detection
                     let btn_text = format!("{} {}", tab.icon(), tab.label());
                     let btn_widget = egui::Button::new(
                         egui::RichText::new(btn_text)
@@ -215,7 +230,7 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                             .color(text_color),
                     )
                     .fill(bg)
-                    .stroke(Stroke::NONE)
+                    .stroke(border)
                     .rounding(Rounding::same(Theme::RADIUS));
 
                     if ui.add(btn_widget).clicked() && !is_active {
@@ -235,24 +250,26 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
 
         // ── Page navigation ────────────────────────────────
         let nav_frame = egui::Frame::none()
-            .fill(Theme::input_bg())
-            .rounding(Rounding::same(Theme::RADIUS))
+            .fill(Color32::from_rgba_premultiplied(4, 4, 7, 160))
+            .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_06()))
+            .rounding(Rounding::same(Theme::RADIUS_LG))
             .inner_margin(egui::Margin::same(2.0));
 
         nav_frame.show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing = Vec2::new(2.0, 0.0);
+                ui.spacing_mut().item_spacing = Vec2::new(1.0, 0.0);
                 for page in Page::ALL {
                     let is_active = state.active_page == page;
-                    let text_color = if is_active {
-                        Theme::accent()
-                    } else {
-                        Theme::t3()
-                    };
+                    let text_color = if is_active { Theme::t1() } else { Theme::t3() };
                     let bg = if is_active {
                         Theme::accent_subtle()
                     } else {
                         Color32::TRANSPARENT
+                    };
+                    let border = if is_active {
+                        Stroke::new(Theme::STROKE_SUBTLE, Theme::with_alpha(Theme::accent(), 50))
+                    } else {
+                        Stroke::NONE
                     };
 
                     let btn_text = format!("{} {}", page.icon(), page.label());
@@ -262,7 +279,7 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                             .color(text_color),
                     )
                     .fill(bg)
-                    .stroke(Stroke::NONE)
+                    .stroke(border)
                     .rounding(Rounding::same(Theme::RADIUS));
 
                     if ui.add(btn_widget).clicked() && !is_active {
@@ -314,34 +331,25 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
             let bg = if tool.active {
                 Theme::accent_subtle()
             } else {
-                Color32::TRANSPARENT
+                Theme::white_02()
+            };
+            let border = if tool.active {
+                Stroke::new(Theme::STROKE_SUBTLE, Theme::with_alpha(Theme::accent(), 50))
+            } else {
+                Stroke::new(Theme::STROKE_SUBTLE, Theme::white_04())
             };
 
-            let btn = egui::Frame::none()
-                .fill(bg)
-                .rounding(Rounding::same(Theme::RADIUS))
-                .inner_margin(egui::Margin::symmetric(6.0, Theme::SPACE_XS));
+            let btn_widget = egui::Button::new(
+                egui::RichText::new(tool.icon)
+                    .size(Theme::FONT_XS)
+                    .color(text_color),
+            )
+            .fill(bg)
+            .stroke(border)
+            .rounding(Rounding::same(Theme::RADIUS))
+            .min_size(Vec2::new(30.0, 24.0));
 
-            // Use inner response for click — Frame::show().response only has Sense::hover
-            let inner = btn
-                .show(ui, |ui| {
-                    let size = Vec2::new(30.0, 28.0);
-                    let (r, _p) = ui.allocate_painter(size, Sense::click());
-                    ui.painter().text(
-                        r.rect.center(),
-                        egui::Align2::CENTER_CENTER,
-                        tool.icon,
-                        egui::FontId::proportional(Theme::FONT_XS),
-                        text_color,
-                    );
-                    if r.hovered() {
-                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                    }
-                    r.clicked()
-                })
-                .inner;
-
-            if inner {
+            if ui.add(btn_widget).clicked() {
                 match i {
                     0 => actions.push(TopBarAction::OpenCommandPalette),
                     1 => {

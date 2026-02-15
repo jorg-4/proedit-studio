@@ -115,11 +115,11 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
         state.hovered_index = filtered.len().saturating_sub(1);
     }
 
-    // Full-screen backdrop
+    // Full-screen backdrop — deeper scrim for Liquid Glass
     let screen = ctx.screen_rect();
     let backdrop_layer = egui::LayerId::new(egui::Order::Foreground, egui::Id::new("cmd_backdrop"));
     let painter = ctx.layer_painter(backdrop_layer);
-    painter.rect_filled(screen, 0.0, Theme::scrim());
+    painter.rect_filled(screen, 0.0, Color32::from_rgba_premultiplied(0, 0, 0, 140));
 
     // Command palette window
     let palette_width = 460.0_f32.min(screen.width() - 40.0);

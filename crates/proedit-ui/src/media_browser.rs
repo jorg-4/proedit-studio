@@ -147,14 +147,31 @@ fn show_media_browser_inner(
         .show(ui, |ui| {
             // Empty state
             if state.items.is_empty() {
-                ui.add_space(ui.available_height() * 0.2);
+                ui.add_space(ui.available_height() * 0.15);
                 ui.vertical_centered(|ui| {
                     ui.spacing_mut().item_spacing = Vec2::new(0.0, Theme::SPACE_SM);
-                    ui.label(egui::RichText::new("+").size(28.0).color(Theme::white_10()));
-                    ui.label(
-                        egui::RichText::new("Import Media  \u{2318}I")
-                            .size(Theme::FONT_XS)
-                            .color(Theme::t4()),
+                    // Dashed outline box
+                    let avail = ui.available_width() * 0.75;
+                    let (resp, painter) =
+                        ui.allocate_painter(Vec2::new(avail, 70.0), egui::Sense::hover());
+                    painter.rect_stroke(
+                        resp.rect,
+                        Rounding::same(8.0),
+                        Stroke::new(1.0, Theme::white_06()),
+                    );
+                    painter.text(
+                        egui::Pos2::new(resp.rect.center().x, resp.rect.center().y - 10.0),
+                        egui::Align2::CENTER_CENTER,
+                        "+",
+                        egui::FontId::proportional(22.0),
+                        Theme::white_10(),
+                    );
+                    painter.text(
+                        egui::Pos2::new(resp.rect.center().x, resp.rect.center().y + 12.0),
+                        egui::Align2::CENTER_CENTER,
+                        "Import Media  \u{2318}I",
+                        egui::FontId::proportional(Theme::FONT_XS),
+                        Theme::t4(),
                     );
                     ui.label(
                         egui::RichText::new("or drag files here")

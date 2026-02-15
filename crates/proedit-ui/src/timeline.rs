@@ -32,7 +32,6 @@ const TRACK_HEIGHT: f32 = 36.0;
 const RULER_HEIGHT: f32 = 20.0;
 const TOOLBAR_HEIGHT: f32 = 28.0;
 const HEADER_WIDTH: f32 = 50.0;
-const EMPTY_ICON_SIZE: f32 = 28.0;
 
 // ── Marker ─────────────────────────────────────────────────────
 
@@ -198,15 +197,22 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         rect.center().x,
                         tracks_top + (TRACK_COUNT as f32 * TRACK_HEIGHT) * 0.5,
                     );
+                    // Dashed border box
+                    let hint_rect = Rect::from_center_size(center, Vec2::new(200.0, 60.0));
+                    painter.rect_stroke(
+                        hint_rect,
+                        Rounding::same(8.0),
+                        Stroke::new(1.0, Theme::white_06()),
+                    );
                     painter.text(
-                        Pos2::new(center.x, center.y - Theme::SPACE_SM),
+                        Pos2::new(center.x, center.y - 8.0),
                         egui::Align2::CENTER_CENTER,
-                        "\u{25AC}",
-                        egui::FontId::proportional(EMPTY_ICON_SIZE),
+                        "+",
+                        egui::FontId::proportional(22.0),
                         Theme::white_10(),
                     );
                     painter.text(
-                        Pos2::new(center.x, center.y + Theme::SPACE_LG - 6.0),
+                        Pos2::new(center.x, center.y + 14.0),
                         egui::Align2::CENTER_CENTER,
                         "Drag media here to start editing",
                         egui::FontId::proportional(Theme::FONT_XS),
@@ -238,32 +244,50 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         new_hovered_clip = Some(clip.id);
                     }
 
-                    // Clip background
+                    // Clip background — glass-like with color tint
                     let (bg_alpha, border_alpha, border_width) = if is_selected {
-                        (48, 128, 1.0)
+                        (55, 140, 1.0)
                     } else if is_hovered {
-                        (30, 64, 1.0)
+                        (38, 80, 1.0)
                     } else {
-                        (20, 30, Theme::STROKE_SUBTLE)
+                        (25, 40, Theme::STROKE_SUBTLE)
                     };
 
+                    // Base fill
                     painter.rect_filled(
                         clip_rect,
-                        Rounding::same(Theme::RADIUS),
+                        Rounding::same(4.0),
                         Theme::with_alpha(clip.color, bg_alpha),
                     );
+
+                    // Top gradient highlight (glass effect)
+                    let top_highlight = Rect::from_min_size(
+                        clip_rect.min,
+                        Vec2::new(clip_rect.width(), clip_rect.height() * 0.35),
+                    );
+                    painter.rect_filled(
+                        top_highlight,
+                        Rounding {
+                            nw: 4.0,
+                            ne: 4.0,
+                            sw: 0.0,
+                            se: 0.0,
+                        },
+                        Color32::from_rgba_premultiplied(255, 255, 255, 4),
+                    );
+
                     painter.rect_stroke(
                         clip_rect,
-                        Rounding::same(Theme::RADIUS),
+                        Rounding::same(4.0),
                         Stroke::new(border_width, Theme::with_alpha(clip.color, border_alpha)),
                     );
 
-                    // Selected glow
+                    // Selected glow — outer ring with color glow
                     if is_selected {
                         painter.rect_stroke(
                             clip_rect.expand(1.0),
-                            Rounding::same(Theme::RADIUS + 1.0),
-                            Stroke::new(1.0, Theme::with_alpha(clip.color, 20)),
+                            Rounding::same(5.0),
+                            Stroke::new(1.5, Theme::with_alpha(clip.color, 25)),
                         );
                     }
 
@@ -323,34 +347,56 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
 
                     // Trim handles on hover/select
                     if is_selected || is_hovered {
+                        let handle_w = 5.0;
+                        let handle_alpha = if is_selected { 100 } else { 65 };
                         // Left handle
-                        let left_handle =
-                            Rect::from_min_size(clip_rect.min, Vec2::new(4.0, clip_rect.height()));
+                        let left_handle = Rect::from_min_size(
+                            clip_rect.min,
+                            Vec2::new(handle_w, clip_rect.height()),
+                        );
                         painter.rect_filled(
                             left_handle,
                             Rounding {
-                                nw: Theme::RADIUS,
-                                sw: Theme::RADIUS,
+                                nw: 4.0,
+                                sw: 4.0,
                                 ne: 0.0,
                                 se: 0.0,
                             },
-                            Theme::with_alpha(clip.color, 60),
+                            Theme::with_alpha(clip.color, handle_alpha),
                         );
+                        // Left handle grip dots
+                        let lc = left_handle.center();
+                        for dy in [-3.0_f32, 0.0, 3.0] {
+                            painter.circle_filled(
+                                Pos2::new(lc.x, lc.y + dy),
+                                0.8,
+                                Theme::with_alpha(clip.color, 180),
+                            );
+                        }
                         // Right handle
                         let right_handle = Rect::from_min_size(
-                            Pos2::new(clip_rect.right() - 4.0, clip_rect.top()),
-                            Vec2::new(4.0, clip_rect.height()),
+                            Pos2::new(clip_rect.right() - handle_w, clip_rect.top()),
+                            Vec2::new(handle_w, clip_rect.height()),
                         );
                         painter.rect_filled(
                             right_handle,
                             Rounding {
                                 nw: 0.0,
                                 sw: 0.0,
-                                ne: Theme::RADIUS,
-                                se: Theme::RADIUS,
+                                ne: 4.0,
+                                se: 4.0,
                             },
-                            Theme::with_alpha(clip.color, 60),
+                            Theme::with_alpha(clip.color, handle_alpha),
                         );
+                        // Right handle grip dots
+                        let rc = right_handle.center();
+                        for dy in [-3.0_f32, 0.0, 3.0] {
+                            painter.circle_filled(
+                                Pos2::new(rc.x, rc.y + dy),
+                                0.8,
+                                Theme::with_alpha(clip.color, 180),
+                            );
+                        }
                     }
                 }
                 state.hovered_clip = new_hovered_clip;
@@ -640,7 +686,7 @@ fn clip_rect_for(
 
 fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<TimelineAction>) {
     let toolbar_frame = egui::Frame::none()
-        .fill(Theme::bg1())
+        .fill(Color32::from_rgba_premultiplied(8, 8, 14, 200))
         .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_06()))
         .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 0.0));
 
@@ -767,14 +813,22 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
 fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
     for (i, name) in TRACK_NAMES.iter().enumerate() {
         let is_video = i < 3;
-        let text_color = if is_video {
-            Theme::with_alpha(Theme::accent(), 144)
+        let track_accent = if is_video {
+            Theme::accent()
         } else {
-            Theme::with_alpha(Theme::green(), 144)
+            Theme::green()
+        };
+        let text_color = Theme::with_alpha(track_accent, 170);
+
+        let is_muted = state.track_muted[i];
+        let header_bg = if is_muted {
+            Color32::from_rgba_premultiplied(20, 5, 5, 40)
+        } else {
+            Theme::bg1()
         };
 
         let header_frame = egui::Frame::none()
-            .fill(Theme::bg1())
+            .fill(header_bg)
             .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_04()))
             .inner_margin(egui::Margin::symmetric(Theme::SPACE_XS, 0.0));
 
@@ -782,7 +836,15 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
             ui.set_height(TRACK_HEIGHT);
             ui.set_width(HEADER_WIDTH - Theme::SPACE_SM);
             ui.horizontal_centered(|ui| {
-                ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_XS, 0.0);
+                ui.spacing_mut().item_spacing = Vec2::new(2.0, 0.0);
+                // Track type indicator bar
+                let (bar_resp, bar_painter) =
+                    ui.allocate_painter(Vec2::new(2.0, 14.0), egui::Sense::hover());
+                bar_painter.rect_filled(
+                    bar_resp.rect,
+                    Rounding::same(1.0),
+                    Theme::with_alpha(track_accent, 80),
+                );
                 ui.label(
                     egui::RichText::new(*name)
                         .size(Theme::FONT_XS)
@@ -790,19 +852,21 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
                         .strong(),
                 );
                 // Mute button
-                let mute_color = if state.track_muted[i] {
-                    Theme::with_alpha(Theme::red(), 230)
+                let mute_color = if is_muted {
+                    Theme::red()
                 } else {
-                    Theme::with_alpha(Theme::t3(), 102)
+                    Theme::with_alpha(Theme::t4(), 128)
                 };
-                let mute_btn = egui::Button::new(
-                    egui::RichText::new("M")
-                        .size(Theme::FONT_XS)
-                        .color(mute_color),
-                )
-                .fill(Color32::TRANSPARENT)
-                .stroke(Stroke::NONE)
-                .rounding(Rounding::same(2.0));
+                let mute_bg = if is_muted {
+                    Theme::with_alpha(Theme::red(), 25)
+                } else {
+                    Color32::TRANSPARENT
+                };
+                let mute_btn =
+                    egui::Button::new(egui::RichText::new("M").size(9.0).color(mute_color))
+                        .fill(mute_bg)
+                        .stroke(Stroke::NONE)
+                        .rounding(Rounding::same(3.0));
 
                 if ui.add(mute_btn).clicked() {
                     state.track_muted[i] = !state.track_muted[i];

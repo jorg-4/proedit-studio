@@ -129,8 +129,10 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) -> Vec<Insp
 
     // ── Header ─────────────────────────────────────────────
     let header_frame = egui::Frame::none()
-        .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_08()))
-        .inner_margin(egui::Margin::symmetric(Theme::SPACE_MD, 9.0));
+        .fill(Theme::with_alpha(clip.color, 8))
+        .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_06()))
+        .rounding(Rounding::same(Theme::RADIUS))
+        .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 8.0));
 
     header_frame.show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -138,7 +140,12 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) -> Vec<Insp
             // Color dot
             let (dot_resp, dot_painter) =
                 ui.allocate_painter(Vec2::splat(10.0), egui::Sense::hover());
-            dot_painter.rect_filled(dot_resp.rect, Rounding::same(3.0), clip.color);
+            dot_painter.circle_filled(dot_resp.rect.center(), 5.0, clip.color);
+            dot_painter.circle_stroke(
+                dot_resp.rect.center(),
+                5.0,
+                Stroke::new(0.5, Theme::with_alpha(clip.color, 140)),
+            );
 
             ui.label(
                 egui::RichText::new(&clip.name)
@@ -314,13 +321,13 @@ fn collapsible_section(
 
     ui.add_space(Theme::SPACE_XS);
     Theme::draw_separator(ui);
+    ui.add_space(1.0);
 
-    // Use a proper Button for reliable click detection
-    let header_text = format!("{} {}", chevron, title);
+    let header_text = format!("{} {}", chevron, title.to_uppercase());
     let header_btn = egui::Button::new(
         egui::RichText::new(header_text)
             .size(Theme::FONT_XS)
-            .color(Theme::t3())
+            .color(if *open { Theme::t2() } else { Theme::t3() })
             .strong(),
     )
     .fill(egui::Color32::TRANSPARENT)
