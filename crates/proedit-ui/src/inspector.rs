@@ -313,32 +313,22 @@ fn collapsible_section(
     let chevron = if *open { "\u{25BE}" } else { "\u{25B8}" };
 
     ui.add_space(Theme::SPACE_XS);
-    // Separator
     Theme::draw_separator(ui);
 
-    let header_resp = ui
-        .horizontal(|ui| {
-            ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
-            ui.add_space(Theme::SPACE_XS);
-            ui.label(
-                egui::RichText::new(chevron)
-                    .size(Theme::FONT_XS)
-                    .color(Theme::t4()),
-            );
-            ui.label(
-                egui::RichText::new(title)
-                    .size(Theme::FONT_XS)
-                    .color(Theme::t3())
-                    .strong(),
-            );
-        })
-        .response;
+    // Use a proper Button for reliable click detection
+    let header_text = format!("{} {}", chevron, title);
+    let header_btn = egui::Button::new(
+        egui::RichText::new(header_text)
+            .size(Theme::FONT_XS)
+            .color(Theme::t3())
+            .strong(),
+    )
+    .fill(egui::Color32::TRANSPARENT)
+    .stroke(Stroke::NONE)
+    .rounding(Rounding::ZERO);
 
-    if header_resp.clicked() {
+    if ui.add(header_btn).clicked() {
         *open = !*open;
-    }
-    if header_resp.hovered() {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
     }
 
     if *open {

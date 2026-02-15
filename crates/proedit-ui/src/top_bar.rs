@@ -207,30 +207,18 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                         Color32::TRANSPARENT
                     };
 
-                    let btn = egui::Frame::none()
-                        .fill(bg)
-                        .rounding(Rounding::same(Theme::RADIUS))
-                        .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 3.0));
+                    // Use a Button directly instead of Frame for reliable click detection
+                    let btn_text = format!("{} {}", tab.icon(), tab.label());
+                    let btn_widget = egui::Button::new(
+                        egui::RichText::new(btn_text)
+                            .size(Theme::FONT_XS)
+                            .color(text_color),
+                    )
+                    .fill(bg)
+                    .stroke(Stroke::NONE)
+                    .rounding(Rounding::same(Theme::RADIUS));
 
-                    let resp = btn
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_XS, 0.0);
-                                ui.label(
-                                    egui::RichText::new(tab.icon())
-                                        .size(Theme::FONT_XS)
-                                        .color(text_color),
-                                );
-                                ui.label(
-                                    egui::RichText::new(tab.label())
-                                        .size(Theme::FONT_XS)
-                                        .color(text_color),
-                                );
-                            });
-                        })
-                        .response;
-
-                    if resp.clicked() && !is_active {
+                    if ui.add(btn_widget).clicked() && !is_active {
                         state.left_tab = tab;
                         actions.push(TopBarAction::LeftTabChanged(tab));
                     }
@@ -267,30 +255,17 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                         Color32::TRANSPARENT
                     };
 
-                    let btn = egui::Frame::none()
-                        .fill(bg)
-                        .rounding(Rounding::same(Theme::RADIUS))
-                        .inner_margin(egui::Margin::symmetric(Theme::SPACE_MD, Theme::SPACE_XS));
+                    let btn_text = format!("{} {}", page.icon(), page.label());
+                    let btn_widget = egui::Button::new(
+                        egui::RichText::new(btn_text)
+                            .size(Theme::FONT_XS)
+                            .color(text_color),
+                    )
+                    .fill(bg)
+                    .stroke(Stroke::NONE)
+                    .rounding(Rounding::same(Theme::RADIUS));
 
-                    let resp = btn
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_XS, 0.0);
-                                ui.label(
-                                    egui::RichText::new(page.icon())
-                                        .size(Theme::FONT_XS)
-                                        .color(text_color),
-                                );
-                                ui.label(
-                                    egui::RichText::new(page.label())
-                                        .size(Theme::FONT_XS)
-                                        .color(text_color),
-                                );
-                            });
-                        })
-                        .response;
-
-                    if resp.clicked() && !is_active {
+                    if ui.add(btn_widget).clicked() && !is_active {
                         state.active_page = page;
                         actions.push(TopBarAction::PageChanged(page));
                     }
@@ -347,7 +322,8 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                 .rounding(Rounding::same(Theme::RADIUS))
                 .inner_margin(egui::Margin::symmetric(6.0, Theme::SPACE_XS));
 
-            let resp = btn
+            // Use inner response for click — Frame::show().response only has Sense::hover
+            let inner = btn
                 .show(ui, |ui| {
                     let size = Vec2::new(30.0, 28.0);
                     let (r, _p) = ui.allocate_painter(size, Sense::click());
@@ -358,10 +334,14 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                         egui::FontId::proportional(Theme::FONT_XS),
                         text_color,
                     );
+                    if r.hovered() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                    }
+                    r.clicked()
                 })
-                .response;
+                .inner;
 
-            if resp.clicked() {
+            if inner {
                 match i {
                     0 => actions.push(TopBarAction::OpenCommandPalette),
                     1 => {

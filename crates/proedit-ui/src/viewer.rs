@@ -1,7 +1,7 @@
 //! Viewport / viewer with animated gradient background and transport overlay.
 
 use crate::theme::Theme;
-use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
+use egui::{self, Pos2, Rect, Rounding, Vec2};
 
 // ── Local domain constants ──────────────────────────────────────
 const PLAY_ICON_SIZE: f32 = 40.0;
@@ -46,38 +46,8 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     let (response, painter) = ui.allocate_painter(available, egui::Sense::click());
     let rect = response.rect;
 
-    // ── Animated gradient background ───────────────────────
-    let ph = state.playhead_frames;
-    let _angle = 135.0 + ph * 0.2;
-
+    // ── Background ─────────────────────────────────────────
     painter.rect_filled(rect, 0.0, Theme::bg());
-
-    // Subtle mid-tone overlay in the center region
-    let mid_rect = rect.shrink2(Vec2::new(rect.width() * 0.2, rect.height() * 0.2));
-    painter.rect_filled(
-        mid_rect,
-        0.0,
-        Color32::from_rgba_premultiplied(20, 26, 38, 40),
-    );
-
-    // Floating radial highlight
-    let cx = rect.center().x + (time * 0.3).sin() as f32 * rect.width() * 0.15;
-    let cy = rect.center().y + (time * 0.2).cos() as f32 * rect.height() * 0.15;
-    let glow_radius = rect.width().min(rect.height()) * 0.4;
-    // Approximate radial glow with a translucent circle
-    painter.circle_filled(
-        Pos2::new(cx, cy),
-        glow_radius,
-        Theme::with_alpha(Theme::accent(), 8),
-    );
-
-    // ── Safe area guides ───────────────────────────────────
-    let inset = rect.shrink2(Vec2::new(rect.width() * 0.1, rect.height() * 0.1));
-    painter.rect_stroke(
-        inset,
-        0.0,
-        Stroke::new(Theme::STROKE_EMPHASIS, Theme::white_04()),
-    );
 
     // ── Idle / empty hint ─────────────────────────────────
     if !state.has_media {

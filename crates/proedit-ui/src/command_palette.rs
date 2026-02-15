@@ -1,7 +1,7 @@
 //! Modal command palette overlay (⌘K).
 
 use crate::theme::Theme;
-use egui::{self, Color32, Rounding, Sense, Stroke, Vec2};
+use egui::{self, Color32, Pos2, Rounding, Sense, Stroke, Vec2};
 
 // ── Command data ───────────────────────────────────────────────
 
@@ -184,105 +184,115 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                     Color32::TRANSPARENT
                                 };
 
-                                let frame = egui::Frame::none()
-                                    .fill(bg)
-                                    .rounding(Rounding::same(Theme::RADIUS))
-                                    .inner_margin(egui::Margin::symmetric(10.0, 7.0));
+                                // Use allocate_ui with click sense for reliable hit detection
+                                let row_width = ui.available_width();
+                                let (row_rect, row_resp) = ui.allocate_exact_size(
+                                    Vec2::new(row_width, 38.0),
+                                    Sense::click(),
+                                );
 
-                                let resp = frame
-                                    .show(ui, |ui| {
-                                        ui.horizontal(|ui| {
-                                            ui.spacing_mut().item_spacing = Vec2::new(9.0, 0.0);
+                                // Draw background
+                                ui.painter().rect_filled(
+                                    row_rect,
+                                    Rounding::same(Theme::RADIUS),
+                                    bg,
+                                );
 
-                                            // Icon box
-                                            let icon_bg = if is_ai {
-                                                Theme::with_alpha(Theme::purple(), 30)
-                                            } else {
-                                                Theme::input_bg()
-                                            };
-                                            let icon_color =
-                                                if is_ai { Theme::purple() } else { Theme::t2() };
+                                // Draw content inside the allocated rect
+                                let mut child_ui = ui.new_child(
+                                    egui::UiBuilder::new()
+                                        .max_rect(row_rect.shrink2(Vec2::new(10.0, 7.0)))
+                                        .layout(egui::Layout::left_to_right(egui::Align::Center)),
+                                );
+                                child_ui.spacing_mut().item_spacing = Vec2::new(9.0, 0.0);
 
-                                            let (icon_resp, icon_painter) = ui.allocate_painter(
-                                                Vec2::splat(24.0),
-                                                Sense::hover(),
-                                            );
-                                            icon_painter.rect_filled(
-                                                icon_resp.rect,
-                                                Rounding::same(Theme::RADIUS),
-                                                icon_bg,
-                                            );
-                                            icon_painter.text(
-                                                icon_resp.rect.center(),
-                                                egui::Align2::CENTER_CENTER,
-                                                cmd.icon,
-                                                egui::FontId::proportional(Theme::FONT_SM),
-                                                icon_color,
-                                            );
+                                // Icon box
+                                let icon_bg = if is_ai {
+                                    Theme::with_alpha(Theme::purple(), 30)
+                                } else {
+                                    Theme::input_bg()
+                                };
+                                let icon_color = if is_ai { Theme::purple() } else { Theme::t2() };
 
-                                            // Name
-                                            ui.label(
-                                                egui::RichText::new(cmd.name)
-                                                    .size(Theme::FONT_SM)
-                                                    .color(Theme::t1()),
-                                            );
+                                let (icon_resp, icon_painter) =
+                                    child_ui.allocate_painter(Vec2::splat(24.0), Sense::hover());
+                                icon_painter.rect_filled(
+                                    icon_resp.rect,
+                                    Rounding::same(Theme::RADIUS),
+                                    icon_bg,
+                                );
+                                icon_painter.text(
+                                    icon_resp.rect.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    cmd.icon,
+                                    egui::FontId::proportional(Theme::FONT_SM),
+                                    icon_color,
+                                );
 
-                                            // AI badge
-                                            if is_ai {
-                                                let badge_frame = egui::Frame::none()
-                                                    .fill(Theme::with_alpha(Theme::purple(), 30))
-                                                    .rounding(Rounding::same(Theme::RADIUS))
-                                                    .inner_margin(egui::Margin::symmetric(
-                                                        6.0, 2.0,
-                                                    ));
-                                                badge_frame.show(ui, |ui| {
-                                                    ui.label(
-                                                        egui::RichText::new("AI")
-                                                            .size(Theme::FONT_XS)
-                                                            .color(Theme::purple())
-                                                            .strong(),
-                                                    );
-                                                });
-                                            }
+                                // Name
+                                child_ui.label(
+                                    egui::RichText::new(cmd.name)
+                                        .size(Theme::FONT_SM)
+                                        .color(Theme::t1()),
+                                );
 
-                                            // Spacer
-                                            ui.with_layout(
-                                                egui::Layout::right_to_left(egui::Align::Center),
-                                                |ui| {
-                                                    // Shortcut
-                                                    if cmd.shortcut != "\u{2014}" {
-                                                        let key_frame = egui::Frame::none()
-                                                            .fill(Theme::input_bg())
-                                                            .stroke(Stroke::new(
-                                                                Theme::STROKE_SUBTLE,
-                                                                Theme::white_10(),
-                                                            ))
-                                                            .rounding(Rounding::same(4.0))
-                                                            .inner_margin(egui::Margin::symmetric(
-                                                                5.0, 2.0,
-                                                            ));
-                                                        key_frame.show(ui, |ui| {
-                                                            ui.label(
-                                                                egui::RichText::new(cmd.shortcut)
-                                                                    .size(Theme::FONT_XS)
-                                                                    .color(Theme::t3())
-                                                                    .family(
-                                                                        egui::FontFamily::Monospace,
-                                                                    ),
-                                                            );
-                                                        });
-                                                    }
-                                                },
-                                            );
-                                        });
-                                    })
-                                    .response;
+                                // AI badge
+                                if is_ai {
+                                    let badge_frame = egui::Frame::none()
+                                        .fill(Theme::with_alpha(Theme::purple(), 30))
+                                        .rounding(Rounding::same(Theme::RADIUS))
+                                        .inner_margin(egui::Margin::symmetric(6.0, 2.0));
+                                    badge_frame.show(&mut child_ui, |ui| {
+                                        ui.label(
+                                            egui::RichText::new("AI")
+                                                .size(Theme::FONT_XS)
+                                                .color(Theme::purple())
+                                                .strong(),
+                                        );
+                                    });
+                                }
 
-                                if resp.clicked() {
+                                // Shortcut (right-aligned) — draw directly with painter
+                                if cmd.shortcut != "\u{2014}" {
+                                    let shortcut_text = cmd.shortcut;
+                                    let font = egui::FontId::monospace(Theme::FONT_XS);
+                                    let text_galley = ui.painter().layout_no_wrap(
+                                        shortcut_text.to_string(),
+                                        font,
+                                        Theme::t3(),
+                                    );
+                                    let text_w = text_galley.rect.width();
+                                    let key_rect = egui::Rect::from_min_size(
+                                        Pos2::new(
+                                            row_rect.right() - 10.0 - text_w - 10.0,
+                                            row_rect.center().y - 10.0,
+                                        ),
+                                        Vec2::new(text_w + 10.0, 20.0),
+                                    );
+                                    ui.painter().rect_filled(
+                                        key_rect,
+                                        Rounding::same(4.0),
+                                        Theme::input_bg(),
+                                    );
+                                    ui.painter().rect_stroke(
+                                        key_rect,
+                                        Rounding::same(4.0),
+                                        Stroke::new(Theme::STROKE_SUBTLE, Theme::white_10()),
+                                    );
+                                    ui.painter().text(
+                                        key_rect.center(),
+                                        egui::Align2::CENTER_CENTER,
+                                        shortcut_text,
+                                        egui::FontId::monospace(Theme::FONT_XS),
+                                        Theme::t3(),
+                                    );
+                                }
+
+                                if row_resp.clicked() {
                                     state.executed = Some(cmd.name);
                                     state.open = false;
                                 }
-                                if resp.hovered() {
+                                if row_resp.hovered() {
                                     state.hovered_index = i;
                                     ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                                 }

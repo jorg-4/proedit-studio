@@ -795,12 +795,16 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
                 } else {
                     Theme::with_alpha(Theme::t3(), 102)
                 };
-                let mute_resp = ui.label(
+                let mute_btn = egui::Button::new(
                     egui::RichText::new("M")
                         .size(Theme::FONT_XS)
                         .color(mute_color),
-                );
-                if mute_resp.clicked() {
+                )
+                .fill(Color32::TRANSPARENT)
+                .stroke(Stroke::NONE)
+                .rounding(Rounding::same(2.0));
+
+                if ui.add(mute_btn).clicked() {
                     state.track_muted[i] = !state.track_muted[i];
                 }
             });

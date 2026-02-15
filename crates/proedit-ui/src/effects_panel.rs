@@ -1,7 +1,7 @@
 //! Effects panel with collapsible categories.
 
 use crate::theme::Theme;
-use egui::{self, Rounding, Vec2};
+use egui::{self, Rounding, Stroke, Vec2};
 
 // ── Data ───────────────────────────────────────────────────────
 
@@ -155,41 +155,20 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
         let is_expanded = state.expanded[cat_idx];
         let chevron = if is_expanded { "\u{25BE}" } else { "\u{25B8}" };
 
-        let header_resp = ui
-            .horizontal(|ui| {
-                ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
-                ui.label(
-                    egui::RichText::new(chevron)
-                        .size(Theme::FONT_XS)
-                        .color(Theme::t4()),
-                );
-                ui.label(
-                    egui::RichText::new(cat.name)
-                        .size(Theme::FONT_XS)
-                        .color(Theme::t3())
-                        .strong(),
-                );
+        // Use a proper Button for reliable click detection
+        let header_text = format!("{} {}  ({})", chevron, cat.name, cat.items.len());
+        let header_btn = egui::Button::new(
+            egui::RichText::new(header_text)
+                .size(Theme::FONT_XS)
+                .color(Theme::t3())
+                .strong(),
+        )
+        .fill(egui::Color32::TRANSPARENT)
+        .stroke(Stroke::NONE)
+        .rounding(Rounding::ZERO);
 
-                // Count badge
-                let badge_frame = egui::Frame::none()
-                    .fill(Theme::input_bg())
-                    .rounding(Rounding::same(Theme::RADIUS))
-                    .inner_margin(egui::Margin::symmetric(5.0, 1.0));
-                badge_frame.show(ui, |ui| {
-                    ui.label(
-                        egui::RichText::new(format!("{}", cat.items.len()))
-                            .size(Theme::FONT_XS)
-                            .color(Theme::t4()),
-                    );
-                });
-            })
-            .response;
-
-        if header_resp.clicked() {
+        if ui.add(header_btn).clicked() {
             state.expanded[cat_idx] = !is_expanded;
-        }
-        if header_resp.hovered() {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }
 
         // Items
@@ -202,43 +181,17 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
                     Theme::t2()
                 };
 
-                let item_frame = egui::Frame::none()
-                    .rounding(Rounding::same(Theme::RADIUS))
-                    .inner_margin(egui::Margin {
-                        left: Theme::SPACE_MD,
-                        right: Theme::SPACE_SM,
-                        top: Theme::SPACE_XS,
-                        bottom: Theme::SPACE_XS,
-                    });
+                let item_text = format!("  {} {}", icon, item.name);
+                let item_btn = egui::Button::new(
+                    egui::RichText::new(item_text)
+                        .size(Theme::FONT_XS)
+                        .color(text_color),
+                )
+                .fill(egui::Color32::TRANSPARENT)
+                .stroke(Stroke::NONE)
+                .rounding(Rounding::same(Theme::RADIUS));
 
-                let resp = item_frame
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
-                            ui.label(
-                                egui::RichText::new(icon)
-                                    .size(Theme::FONT_XS)
-                                    .color(text_color),
-                            );
-                            ui.label(
-                                egui::RichText::new(item.name)
-                                    .size(Theme::FONT_XS)
-                                    .color(text_color),
-                            );
-                        });
-                    })
-                    .response;
-
-                if resp.hovered() {
-                    let hover_bg = if item.is_ai {
-                        Theme::with_alpha(Theme::purple(), 10)
-                    } else {
-                        Theme::white_04()
-                    };
-                    ui.painter()
-                        .rect_filled(resp.rect, Rounding::same(Theme::RADIUS), hover_bg);
-                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                }
+                let _resp = ui.add(item_btn);
             }
         }
 

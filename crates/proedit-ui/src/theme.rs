@@ -230,7 +230,7 @@ impl Theme {
             color: Color32::from_rgba_premultiplied(0, 0, 0, 80),
         };
 
-        visuals.resize_corner_size = 0.0;
+        visuals.resize_corner_size = 8.0;
 
         // Tooltip delay
         style.interaction.tooltip_delay = 0.4;

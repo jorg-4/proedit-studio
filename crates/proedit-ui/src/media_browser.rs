@@ -121,27 +121,17 @@ fn show_media_browser_inner(
                 Stroke::new(Theme::STROKE_SUBTLE, Theme::white_04())
             };
 
-            let chip = egui::Frame::none()
-                .fill(bg)
-                .stroke(border)
-                .rounding(Rounding::same(Theme::RADIUS))
-                .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 2.0));
+            let chip_btn = egui::Button::new(
+                egui::RichText::new(*filter)
+                    .size(Theme::FONT_XS)
+                    .color(text_color),
+            )
+            .fill(bg)
+            .stroke(border)
+            .rounding(Rounding::same(Theme::RADIUS));
 
-            let resp = chip
-                .show(ui, |ui| {
-                    ui.label(
-                        egui::RichText::new(*filter)
-                            .size(Theme::FONT_XS)
-                            .color(text_color),
-                    );
-                })
-                .response;
-
-            if resp.clicked() {
+            if ui.add(chip_btn).clicked() {
                 state.active_filter = i;
-            }
-            if resp.hovered() {
-                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
         }
     });
@@ -245,39 +235,18 @@ fn show_media_browser_inner(
             ui.add_space(Theme::SPACE_SM);
 
             // ── Import button ──────────────────────────────
-            let import_frame = egui::Frame::none()
-                .stroke(Stroke::new(Theme::STROKE_EMPHASIS, Theme::t4()))
-                .rounding(Rounding::same(Theme::RADIUS))
-                .inner_margin(egui::Margin::symmetric(0.0, 14.0));
+            let import_btn = egui::Button::new(
+                egui::RichText::new("+ Import Media")
+                    .size(Theme::FONT_XS)
+                    .color(Theme::t3()),
+            )
+            .fill(egui::Color32::TRANSPARENT)
+            .stroke(Stroke::new(Theme::STROKE_EMPHASIS, Theme::t4()))
+            .rounding(Rounding::same(Theme::RADIUS))
+            .min_size(Vec2::new(ui.available_width(), 44.0));
 
-            let import_resp = import_frame
-                .show(ui, |ui| {
-                    ui.vertical_centered(|ui| {
-                        ui.spacing_mut().item_spacing = Vec2::new(0.0, Theme::SPACE_XS);
-                        ui.label(
-                            egui::RichText::new("+")
-                                .size(Theme::FONT_MD)
-                                .color(Theme::with_alpha(Theme::t3(), 128)),
-                        );
-                        ui.label(
-                            egui::RichText::new("Import Media")
-                                .size(Theme::FONT_XS)
-                                .color(Theme::t4()),
-                        );
-                    });
-                })
-                .response;
-
-            if import_resp.clicked() {
+            if ui.add(import_btn).clicked() {
                 actions.push(MediaBrowserAction::ImportMedia);
-            }
-            if import_resp.hovered() {
-                ui.painter().rect_stroke(
-                    import_resp.rect,
-                    Rounding::same(Theme::RADIUS),
-                    Stroke::new(Theme::STROKE_EMPHASIS, Theme::accent()),
-                );
-                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
         });
 }
