@@ -2,9 +2,10 @@
 
 use crate::snapping::SnappingEngine;
 use crate::theme::Theme;
-use crate::trim::{ClipDragState, TrimState};
+use crate::trim::{apply_trim, hit_test_trim_handle, trim_cursor, ClipDragState, TrimState};
 use crate::widgets;
 use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
+use std::collections::HashMap;
 
 // ── Clip data ────────────────────────────────────────────────────
 
@@ -66,6 +67,8 @@ pub struct TimelineState {
     pub snapping: SnappingEngine,
     pub track_locked: [bool; TRACK_COUNT],
     pub track_solo: [bool; TRACK_COUNT],
+    /// Cached waveform data per clip ID: Vec of [min, max] pairs for display.
+    pub waveform_cache: HashMap<usize, Vec<[f32; 2]>>,
 }
 
 impl Default for TimelineState {
@@ -90,6 +93,7 @@ impl Default for TimelineState {
             snapping: SnappingEngine::new(),
             track_locked: [false; TRACK_COUNT],
             track_solo: [false; TRACK_COUNT],
+            waveform_cache: HashMap::new(),
         }
     }
 }
@@ -263,19 +267,45 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         );
                     }
 
-                    // Audio waveform pattern
+                    // Audio waveform
                     if clip.clip_type == ClipKind::Audio {
-                        let step = 3.0;
-                        let mut x = clip_rect.left() + 2.0;
-                        while x < clip_rect.right() - 2.0 {
-                            painter.line_segment(
-                                [
-                                    Pos2::new(x, clip_rect.top() + Theme::SPACE_XS),
-                                    Pos2::new(x, clip_rect.bottom() - Theme::SPACE_XS),
-                                ],
-                                Stroke::new(1.0, Theme::with_alpha(clip.color, 30)),
-                            );
-                            x += step;
+                        if let Some(waveform) = state.waveform_cache.get(&clip.id) {
+                            // Draw real waveform from cached data
+                            let num_samples = waveform.len();
+                            if num_samples > 0 {
+                                let pixels = clip_width as usize;
+                                let samples_per_px = (num_samples as f32 / pixels as f32).max(1.0);
+                                let mid_y = clip_rect.center().y;
+                                let half_h = clip_rect.height() * 0.4;
+                                for px in 0..pixels.min(clip_rect.width() as usize) {
+                                    let si = (px as f32 * samples_per_px) as usize;
+                                    if si >= num_samples {
+                                        break;
+                                    }
+                                    let [min_v, max_v] = waveform[si];
+                                    let y_top = mid_y - max_v * half_h;
+                                    let y_bot = mid_y - min_v * half_h;
+                                    let x = clip_rect.left() + px as f32;
+                                    painter.line_segment(
+                                        [Pos2::new(x, y_top), Pos2::new(x, y_bot)],
+                                        Stroke::new(1.0, Theme::with_alpha(clip.color, 80)),
+                                    );
+                                }
+                            }
+                        } else {
+                            // Fallback: placeholder bars
+                            let step = 3.0;
+                            let mut x = clip_rect.left() + 2.0;
+                            while x < clip_rect.right() - 2.0 {
+                                painter.line_segment(
+                                    [
+                                        Pos2::new(x, clip_rect.top() + Theme::SPACE_XS),
+                                        Pos2::new(x, clip_rect.bottom() - Theme::SPACE_XS),
+                                    ],
+                                    Stroke::new(1.0, Theme::with_alpha(clip.color, 30)),
+                                );
+                                x += step;
+                            }
                         }
                     }
 
@@ -324,6 +354,20 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     }
                 }
                 state.hovered_clip = new_hovered_clip;
+
+                // Trim handle hover cursor
+                if response.hovered() && state.trim_state.is_none() && state.drag_state.is_none() {
+                    if let Some(hover_pos) = response.hover_pos() {
+                        for clip in &state.clips {
+                            let cr =
+                                clip_rect_for(clip, tracks_top, &rect, state.zoom, state.scroll_x);
+                            if let Some(edge) = hit_test_trim_handle(cr, hover_pos, 6.0) {
+                                ui.ctx().set_cursor_icon(trim_cursor(edge));
+                                break;
+                            }
+                        }
+                    }
+                }
 
                 // Marker lines
                 for marker in &state.markers {
@@ -391,6 +435,19 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     );
                 }
 
+                // Snap indicator line
+                if let Some(ref drag) = state.drag_state {
+                    if let Some(snap_frame) = drag.snap_indicator {
+                        let sx = rect.left() + snap_frame * state.zoom - state.scroll_x;
+                        if sx >= rect.left() && sx <= rect.right() {
+                            painter.line_segment(
+                                [Pos2::new(sx, tracks_top), Pos2::new(sx, rect.bottom())],
+                                Stroke::new(1.0, Theme::cyan()),
+                            );
+                        }
+                    }
+                }
+
                 // Click handling
                 if response.clicked() {
                     if let Some(pos) = response.interact_pointer_pos() {
@@ -425,13 +482,135 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     }
                 }
 
-                // Drag on ruler to scrub
+                // --- Drag handling (trim / move / ruler scrub) ---
                 if response.dragged() {
                     if let Some(pos) = response.interact_pointer_pos() {
-                        if pos.y < tracks_top {
+                        // Initiate new interaction if none active
+                        if state.trim_state.is_none()
+                            && state.drag_state.is_none()
+                            && pos.y >= tracks_top
+                        {
+                            for clip in &state.clips {
+                                let cr = clip_rect_for(
+                                    clip,
+                                    tracks_top,
+                                    &rect,
+                                    state.zoom,
+                                    state.scroll_x,
+                                );
+                                if let Some(edge) = hit_test_trim_handle(cr, pos, 6.0) {
+                                    let frame = ((pos.x - rect.left() + state.scroll_x)
+                                        / state.zoom)
+                                        .max(0.0);
+                                    state.trim_state = Some(TrimState::new(clip, edge, frame));
+                                    break;
+                                }
+                                if cr.contains(pos) {
+                                    let frame = ((pos.x - rect.left() + state.scroll_x)
+                                        / state.zoom)
+                                        .max(0.0);
+                                    state.drag_state = Some(ClipDragState {
+                                        clip_id: clip.id,
+                                        offset_frame: frame - clip.start,
+                                        original_track: clip.track,
+                                        snap_indicator: None,
+                                    });
+                                    state.selected_clip = Some(clip.id);
+                                    actions.push(TimelineAction::SelectClip(Some(clip.id)));
+                                    break;
+                                }
+                            }
+                        }
+
+                        // Process active trim
+                        if let Some((clip_id, edge)) =
+                            state.trim_state.as_ref().map(|t| (t.clip_id, t.edge))
+                        {
+                            let frame =
+                                ((pos.x - rect.left() + state.scroll_x) / state.zoom).max(0.0);
+                            let snap_points = SnappingEngine::collect_snap_points(state);
+                            let snapped = if state.snap_enabled {
+                                state
+                                    .snapping
+                                    .find_snap(frame, &snap_points, state.zoom, Some(clip_id))
+                                    .unwrap_or(frame)
+                            } else {
+                                frame
+                            };
+                            if let Some(trim) = state.trim_state.as_mut() {
+                                trim.current_frame = snapped;
+                            }
+                            if let Some(trim_snap) = state.trim_state.clone() {
+                                if let Some(clip) = state.clips.iter_mut().find(|c| c.id == clip_id)
+                                {
+                                    apply_trim(clip, &trim_snap, snapped);
+                                }
+                            }
+                            ui.ctx().set_cursor_icon(trim_cursor(edge));
+                        }
+                        // Process active drag
+                        else if let Some((clip_id, offset)) = state
+                            .drag_state
+                            .as_ref()
+                            .map(|d| (d.clip_id, d.offset_frame))
+                        {
+                            let frame =
+                                ((pos.x - rect.left() + state.scroll_x) / state.zoom).max(0.0);
+                            let target_frame = frame - offset;
+                            let track = ((pos.y - tracks_top) / TRACK_HEIGHT).floor() as usize;
+
+                            let snapped = if state.snap_enabled {
+                                if let Some(cc) =
+                                    state.clips.iter().find(|c| c.id == clip_id).cloned()
+                                {
+                                    state.snapping.snap_clip(&cc, target_frame, state)
+                                } else {
+                                    target_frame
+                                }
+                            } else {
+                                target_frame
+                            };
+
+                            if let Some(clip) = state.clips.iter_mut().find(|c| c.id == clip_id) {
+                                clip.start = snapped.max(0.0);
+                                clip.track = track.min(TRACK_COUNT - 1);
+                            }
+
+                            if let Some(drag) = state.drag_state.as_mut() {
+                                drag.snap_indicator = if (snapped - target_frame).abs() > 0.01 {
+                                    Some(snapped)
+                                } else {
+                                    None
+                                };
+                            }
+                        }
+                        // Ruler scrub (only if not trimming or dragging)
+                        else if pos.y < tracks_top {
                             let frame = (pos.x - rect.left() + state.scroll_x) / state.zoom;
                             state.playhead = frame.max(0.0);
                             actions.push(TimelineAction::SeekTo(state.playhead));
+                        }
+                    }
+                }
+
+                // --- Drag release: emit final actions ---
+                if response.drag_stopped() {
+                    if let Some(trim) = state.trim_state.take() {
+                        if let Some(clip) = state.clips.iter().find(|c| c.id == trim.clip_id) {
+                            actions.push(TimelineAction::TrimClip {
+                                clip_id: trim.clip_id,
+                                new_start: clip.start,
+                                new_dur: clip.dur,
+                            });
+                        }
+                    }
+                    if let Some(drag) = state.drag_state.take() {
+                        if let Some(clip) = state.clips.iter().find(|c| c.id == drag.clip_id) {
+                            actions.push(TimelineAction::DragClip {
+                                clip_id: drag.clip_id,
+                                new_start: clip.start,
+                                new_track: clip.track,
+                            });
                         }
                     }
                 }
@@ -440,6 +619,21 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
     });
 
     actions
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+fn clip_rect_for(
+    clip: &TimelineClip,
+    tracks_top: f32,
+    rect: &Rect,
+    zoom: f32,
+    scroll_x: f32,
+) -> Rect {
+    let x = rect.left() + clip.start * zoom - scroll_x;
+    let w = (clip.dur * zoom).max(20.0);
+    let y = tracks_top + clip.track as f32 * TRACK_HEIGHT + 3.0;
+    Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, 30.0))
 }
 
 // ── Sub-components ─────────────────────────────────────────────

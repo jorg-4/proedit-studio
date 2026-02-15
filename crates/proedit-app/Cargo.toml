@@ -19,6 +19,8 @@ proedit-ui.workspace = true
 proedit-audio.workspace = true
 proedit-ai.workspace = true
 
+rfd = "0.15"
+
 eframe.workspace = true
 egui.workspace = true
 egui-wgpu.workspace = true

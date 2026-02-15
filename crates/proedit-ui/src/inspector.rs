@@ -6,8 +6,15 @@ use egui::{self, Color32, Rounding, Stroke, Vec2};
 
 // ── Data ───────────────────────────────────────────────────────
 
+/// Actions emitted by the inspector when properties change.
+#[derive(Debug)]
+pub enum InspectorAction {
+    PropertyChanged { clip_id: usize },
+}
+
 /// Represents a selected clip's inspectable properties.
 pub struct InspectorClip {
+    pub clip_id: Option<usize>,
     pub name: String,
     pub color: Color32,
     pub clip_type: ClipType,
@@ -36,8 +43,15 @@ pub enum ClipType {
 
 impl InspectorClip {
     /// Create an inspector clip from a name, color and clip type with sensible defaults.
-    pub fn new(name: String, color: Color32, clip_type: ClipType, out_point: f32) -> Self {
+    pub fn new(
+        clip_id: Option<usize>,
+        name: String,
+        color: Color32,
+        clip_type: ClipType,
+        out_point: f32,
+    ) -> Self {
         Self {
+            clip_id,
             name,
             color,
             clip_type,
@@ -82,7 +96,8 @@ impl Default for InspectorState {
 
 // ── Rendering ──────────────────────────────────────────────────
 
-pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) {
+pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) -> Vec<InspectorAction> {
+    let mut actions = Vec::new();
     let Some(clip) = &mut state.clip else {
         // Empty state
         ui.vertical_centered(|ui| {
@@ -99,8 +114,16 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) {
                     .color(Theme::t4()),
             );
         });
-        return;
+        return actions;
     };
+    let prev = (
+        clip.pos_x,
+        clip.pos_y,
+        clip.scale,
+        clip.rotation,
+        clip.opacity,
+        clip.speed,
+    );
 
     ui.spacing_mut().item_spacing = Vec2::new(0.0, 2.0);
 
@@ -259,6 +282,23 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) {
                 }
             });
         });
+
+    // Detect property changes
+    let curr = (
+        clip.pos_x,
+        clip.pos_y,
+        clip.scale,
+        clip.rotation,
+        clip.opacity,
+        clip.speed,
+    );
+    if prev != curr {
+        actions.push(InspectorAction::PropertyChanged {
+            clip_id: clip.clip_id.unwrap_or(0),
+        });
+    }
+
+    actions
 }
 
 // ── Helpers ────────────────────────────────────────────────────

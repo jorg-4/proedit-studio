@@ -276,6 +276,105 @@ impl ExportJob {
     }
 }
 
+impl ExportJob {
+    /// Run the export, piping placeholder black RGBA frames into FFmpeg.
+    ///
+    /// * `sequence_duration` – total duration of the sequence (used to compute frame count).
+    /// * `on_progress` – called periodically with progress info.
+    /// * `cancel` – checked every frame; if cancelled, the export aborts early.
+    ///
+    /// Real compositor integration will replace the black-frame writer later.
+    pub fn run(
+        &self,
+        sequence_duration: RationalTime,
+        on_progress: impl Fn(ExportProgress),
+        cancel: &ExportCancel,
+    ) -> proedit_core::Result<()> {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+        use std::time::Instant;
+
+        let total_frames = self.total_frames(sequence_duration);
+        if total_frames == 0 {
+            return Ok(());
+        }
+
+        let args = self.ffmpeg_args();
+        let mut child = Command::new("ffmpeg")
+            .args(&args)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| {
+                proedit_core::ProEditError::Encoder(format!("Failed to spawn ffmpeg: {e}"))
+            })?;
+
+        let mut stdin = child.stdin.take().ok_or_else(|| {
+            proedit_core::ProEditError::Encoder("Failed to open ffmpeg stdin".into())
+        })?;
+
+        // Black RGBA frame (placeholder until real compositor is wired in)
+        let frame_size = (self.format.width as usize) * (self.format.height as usize) * 4;
+        let black_frame = vec![0u8; frame_size];
+
+        let start_time = Instant::now();
+
+        for frame_number in 0..total_frames {
+            if cancel.is_cancelled() {
+                // Drop stdin to signal EOF, then kill
+                drop(stdin);
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(proedit_core::ProEditError::Encoder(
+                    "Export cancelled".into(),
+                ));
+            }
+
+            stdin.write_all(&black_frame).map_err(|e| {
+                proedit_core::ProEditError::Encoder(format!("Failed to write frame: {e}"))
+            })?;
+
+            // Report progress every 10 frames
+            if frame_number % 10 == 0 || frame_number == total_frames - 1 {
+                let elapsed = start_time.elapsed().as_secs_f64();
+                let fps = if elapsed > 0.0 {
+                    (frame_number + 1) as f64 / elapsed
+                } else {
+                    0.0
+                };
+                let remaining = if fps > 0.0 {
+                    (total_frames - frame_number - 1) as f64 / fps
+                } else {
+                    0.0
+                };
+                on_progress(ExportProgress {
+                    current_frame: frame_number,
+                    total_frames,
+                    eta_seconds: remaining,
+                    fps,
+                });
+            }
+        }
+
+        // Close stdin to signal end-of-stream
+        drop(stdin);
+
+        let status = child.wait().map_err(|e| {
+            proedit_core::ProEditError::Encoder(format!("Failed to wait for ffmpeg: {e}"))
+        })?;
+
+        if !status.success() {
+            return Err(proedit_core::ProEditError::Encoder(format!(
+                "ffmpeg exited with status: {}",
+                status
+            )));
+        }
+
+        Ok(())
+    }
+}
+
 /// Handle for cancelling an in-progress export.
 #[derive(Debug, Clone)]
 pub struct ExportCancel(Arc<AtomicBool>);

@@ -3,16 +3,21 @@
 //! Entry point and main application loop.
 //! Liquid Glass iOS 26 dark aesthetic.
 
+mod ai_bridge;
+mod compositor;
+
 use anyhow::Result;
 use eframe::egui;
 use proedit_core::{FrameBuffer, FrameRate};
 use proedit_media::VideoDecoder;
-use proedit_timeline::{Project, Sequence};
+use proedit_timeline::{Project, ProjectFile, Sequence};
+use proedit_ui::timeline::{TimelineAction, TimelineClip};
 use proedit_ui::{
-    show_audio_mixer, show_color_wheels, show_command_palette, show_effects_panel, show_inspector,
-    show_media_browser, show_timeline, show_top_bar, show_viewer, AudioMixerState,
-    ColorWheelsState, CommandPaletteState, EffectsPanelState, InspectorState, LeftTab,
-    MediaBrowserState, Theme, TimelineState, TopBarState, ViewerState,
+    show_audio_mixer, show_color_wheels, show_command_palette, show_effects_panel,
+    show_export_dialog, show_inspector, show_media_browser, show_timeline, show_top_bar,
+    show_viewer, AudioMixerState, ColorWheelsState, CommandPaletteState, CommandRegistry,
+    CurveEditorState, EffectsPanelState, ExportDialogAction, ExportDialogState, InspectorState,
+    LeftTab, MediaBrowserState, Page, Theme, TimelineState, TopBarAction, TopBarState, ViewerState,
 };
 use std::path::PathBuf;
 use tracing::{info, Level};
@@ -47,7 +52,11 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 struct ProEditApp {
+    // AI
+    ai_engine: Option<proedit_ai::AIEngine>,
+
     // Core
     project: Project,
     decoder: Option<VideoDecoder>,
@@ -57,6 +66,18 @@ struct ProEditApp {
     last_frame_time: std::time::Instant,
     start_time: std::time::Instant,
     frame_number: i64,
+
+    // Audio
+    audio_engine: Option<proedit_audio::AudioEngine>,
+
+    // Undo/redo
+    undo_snapshots: Vec<Vec<TimelineClip>>,
+    redo_snapshots: Vec<Vec<TimelineClip>>,
+    dirty: bool,
+    project_path: Option<PathBuf>,
+
+    // Command system
+    command_registry: CommandRegistry,
 
     // UI state
     top_bar: TopBarState,
@@ -68,6 +89,8 @@ struct ProEditApp {
     command_palette: CommandPaletteState,
     color_wheels: ColorWheelsState,
     audio_mixer: AudioMixerState,
+    curve_editor: CurveEditorState,
+    export_dialog: ExportDialogState,
 }
 
 impl ProEditApp {
@@ -96,7 +119,19 @@ impl ProEditApp {
         let mut project = Project::new("New Project");
         project.add_sequence(Sequence::default());
 
+        let audio_engine = match proedit_audio::AudioEngine::new() {
+            Ok(engine) => {
+                info!("Audio engine initialized");
+                Some(engine)
+            }
+            Err(e) => {
+                eprintln!("Audio engine init failed: {}", e);
+                None
+            }
+        };
+
         Self {
+            ai_engine: Some(ai_bridge::init_ai_engine()),
             project,
             decoder,
             current_frame: None,
@@ -105,6 +140,12 @@ impl ProEditApp {
             last_frame_time: std::time::Instant::now(),
             start_time: std::time::Instant::now(),
             frame_number: 0,
+            audio_engine,
+            undo_snapshots: Vec::new(),
+            redo_snapshots: Vec::new(),
+            dirty: false,
+            project_path: None,
+            command_registry: CommandRegistry::new(),
             top_bar: TopBarState::default(),
             timeline: TimelineState::default(),
             viewer: ViewerState::default(),
@@ -114,6 +155,8 @@ impl ProEditApp {
             command_palette: CommandPaletteState::default(),
             color_wheels: ColorWheelsState::default(),
             audio_mixer: AudioMixerState::default(),
+            curve_editor: CurveEditorState::default(),
+            export_dialog: ExportDialogState::default(),
         }
     }
 
@@ -147,6 +190,175 @@ impl ProEditApp {
             .unwrap_or(self.project.frame_rate)
     }
 
+    // ── Undo/Redo ────────────────────────────────────────────
+
+    fn push_undo(&mut self) {
+        self.undo_snapshots.push(self.timeline.clips.clone());
+        self.redo_snapshots.clear();
+        self.dirty = true;
+        // Limit history depth
+        if self.undo_snapshots.len() > 200 {
+            self.undo_snapshots.remove(0);
+        }
+    }
+
+    fn undo(&mut self) {
+        if let Some(snapshot) = self.undo_snapshots.pop() {
+            self.redo_snapshots.push(self.timeline.clips.clone());
+            self.timeline.clips = snapshot;
+            self.dirty = true;
+            info!("Undo");
+        }
+    }
+
+    fn redo(&mut self) {
+        if let Some(snapshot) = self.redo_snapshots.pop() {
+            self.undo_snapshots.push(self.timeline.clips.clone());
+            self.timeline.clips = snapshot;
+            self.dirty = true;
+            info!("Redo");
+        }
+    }
+
+    // ── Save/Load ──────────────────────────────────────────
+
+    fn save_project(&mut self) {
+        let path = if let Some(ref p) = self.project_path {
+            Some(p.clone())
+        } else {
+            rfd::FileDialog::new()
+                .set_title("Save Project")
+                .add_filter("ProEdit Project", &["pep"])
+                .save_file()
+        };
+        if let Some(path) = path {
+            let file = ProjectFile::new(self.project.clone());
+            match file.save_to_file(&path) {
+                Ok(()) => {
+                    self.project_path = Some(path);
+                    self.dirty = false;
+                    info!("Project saved");
+                }
+                Err(e) => eprintln!("Save failed: {}", e),
+            }
+        }
+    }
+
+    fn load_project(&mut self) {
+        let path = rfd::FileDialog::new()
+            .set_title("Open Project")
+            .add_filter("ProEdit Project", &["pep"])
+            .pick_file();
+        if let Some(path) = path {
+            match ProjectFile::load_from_file(&path) {
+                Ok(file) => {
+                    self.project = file.project;
+                    self.project_path = Some(path);
+                    self.dirty = false;
+                    self.undo_snapshots.clear();
+                    self.redo_snapshots.clear();
+                    info!("Project loaded");
+                }
+                Err(e) => eprintln!("Load failed: {}", e),
+            }
+        }
+    }
+
+    // ── Command dispatch ────────────────────────────────────
+
+    fn execute_command(&mut self, name: &str) {
+        match name {
+            "Undo" => self.undo(),
+            "Redo" => self.redo(),
+            "Save Project" => self.save_project(),
+            "Open Project" => self.load_project(),
+            "Import Media" => self.import_media(),
+            "Razor at Playhead" | "Split at Playhead" => {
+                self.push_undo();
+                self.razor_at_playhead();
+            }
+            "Ripple Delete" | "Delete" => {
+                self.push_undo();
+                self.delete_selected_clip();
+            }
+            "Add Marker" => {
+                self.timeline.markers.push(proedit_ui::timeline::Marker {
+                    frame: self.timeline.playhead,
+                    color: Theme::amber(),
+                });
+            }
+            "Toggle Audio Mixer" => {
+                self.top_bar.audio_mixer_open = !self.top_bar.audio_mixer_open;
+            }
+            "Toggle Inspector" => {
+                self.top_bar.inspector_open = !self.top_bar.inspector_open;
+            }
+            "Toggle Color Wheels" => {
+                self.top_bar.color_wheels_open = !self.top_bar.color_wheels_open;
+            }
+            "Export" | "Export Project" => {
+                self.export_dialog.open = !self.export_dialog.open;
+            }
+            "Play/Pause" => {
+                self.playing = !self.playing;
+                if let Some(ref mut engine) = self.audio_engine {
+                    if self.playing {
+                        engine.play();
+                    } else {
+                        engine.stop();
+                    }
+                }
+            }
+            "Zoom In" => {
+                self.timeline.zoom = (self.timeline.zoom + 0.2).min(3.0);
+            }
+            "Zoom Out" => {
+                self.timeline.zoom = (self.timeline.zoom - 0.2).max(0.4);
+            }
+            "Select All" => {
+                self.timeline.selection = self.timeline.clips.iter().map(|c| c.id).collect();
+            }
+            "Command Palette" => {
+                self.command_palette.toggle();
+            }
+            "Toggle Fullscreen" => {
+                info!("Fullscreen toggle requested");
+            }
+            "New Project" => {
+                self.project = Project::new("New Project");
+                self.project.add_sequence(Sequence::default());
+                self.timeline.clips.clear();
+                self.undo_snapshots.clear();
+                self.redo_snapshots.clear();
+                self.dirty = false;
+                self.project_path = None;
+                info!("New project created");
+            }
+            "Detect Scenes" | "Scene Detect" => {
+                info!("Scene detection requested (requires decoded frames)");
+            }
+            "Auto Color" | "Auto Color Match" => {
+                info!("Auto color correction requested");
+            }
+            "Remove Background" => {
+                info!("Background removal requested (requires AI model)");
+            }
+            "Enhance Audio" => {
+                info!("Audio enhancement requested (requires AI model)");
+            }
+            "Upscale 4K" => {
+                info!("4K upscale requested (requires AI model)");
+            }
+            "Style Transfer" => {
+                info!("Style transfer requested (requires AI model)");
+            }
+            "Smart Stabilize" => {
+                info!("Smart stabilization requested (requires AI model)");
+            }
+            _ => info!("Command '{}' not yet implemented", name),
+        }
+    }
+
     fn handle_keyboard(&mut self, ctx: &egui::Context) {
         // Don't handle keys if command palette is open (it handles its own)
         if self.command_palette.open {
@@ -157,6 +369,13 @@ impl ProEditApp {
             // Space — toggle play/pause
             if inp.key_pressed(egui::Key::Space) {
                 self.playing = !self.playing;
+                if let Some(ref mut engine) = self.audio_engine {
+                    if self.playing {
+                        engine.play();
+                    } else {
+                        engine.stop();
+                    }
+                }
             }
             // J — play reverse (speed -= 1)
             if inp.key_pressed(egui::Key::J) {
@@ -167,6 +386,9 @@ impl ProEditApp {
             if inp.key_pressed(egui::Key::K) {
                 self.playing = false;
                 self.speed = 1.0;
+                if let Some(ref mut engine) = self.audio_engine {
+                    engine.stop();
+                }
             }
             // L — play forward (speed += 1)
             if inp.key_pressed(egui::Key::L) {
@@ -210,11 +432,17 @@ impl ProEditApp {
             }
             // C — razor at playhead (split selected clip)
             if inp.key_pressed(egui::Key::C) {
+                self.push_undo();
                 self.razor_at_playhead();
             }
             // Delete/Backspace — delete selected clip
             if inp.key_pressed(egui::Key::Delete) || inp.key_pressed(egui::Key::Backspace) {
+                self.push_undo();
                 self.delete_selected_clip();
+            }
+            // G — toggle curve editor
+            if inp.key_pressed(egui::Key::G) {
+                self.curve_editor.visible = !self.curve_editor.visible;
             }
             // +/= — zoom in
             if inp.key_pressed(egui::Key::Plus) || inp.key_pressed(egui::Key::Equals) {
@@ -237,21 +465,33 @@ impl ProEditApp {
             if inp.modifiers.command && inp.key_pressed(egui::Key::K) {
                 self.command_palette.toggle();
             }
-            // ⌘Z — undo (placeholder — logs intent)
+            // ⌘Z — undo, ⌘⇧Z — redo
             if inp.modifiers.command && inp.key_pressed(egui::Key::Z) {
-                info!("Undo requested (not yet implemented)");
+                if inp.modifiers.shift {
+                    self.redo();
+                } else {
+                    self.undo();
+                }
             }
-            // ⌘S — save project (placeholder — logs intent)
+            // ⌘S — save project
             if inp.modifiers.command && inp.key_pressed(egui::Key::S) {
-                info!("Save requested (not yet implemented)");
+                self.save_project();
             }
-            // ⌘I — import media (placeholder — logs intent)
+            // ⌘O — open project
+            if inp.modifiers.command && inp.key_pressed(egui::Key::O) {
+                self.load_project();
+            }
+            // ⌘I — import media
             if inp.modifiers.command && inp.key_pressed(egui::Key::I) {
-                info!("Import media requested (not yet implemented)");
+                self.import_media();
             }
             // ⌘M — toggle audio mixer
             if inp.modifiers.command && inp.key_pressed(egui::Key::M) {
                 self.top_bar.audio_mixer_open = !self.top_bar.audio_mixer_open;
+            }
+            // ⌘⇧E — toggle export dialog
+            if inp.modifiers.command && inp.modifiers.shift && inp.key_pressed(egui::Key::E) {
+                self.export_dialog.open = !self.export_dialog.open;
             }
         });
     }
@@ -329,6 +569,7 @@ impl ProEditApp {
                             }
                         };
                         self.inspector.clip = Some(proedit_ui::InspectorClip::new(
+                            Some(clip.id),
                             clip.name.clone(),
                             clip.color,
                             clip_type,
@@ -341,6 +582,115 @@ impl ProEditApp {
             }
             None => {
                 self.inspector.clip = None;
+            }
+        }
+    }
+
+    // ── Media Import ────────────────────────────────────────────
+
+    fn import_media(&mut self) {
+        let paths = rfd::FileDialog::new()
+            .set_title("Import Media")
+            .add_filter(
+                "Media Files",
+                &[
+                    "mp4", "mov", "avi", "mkv", "wav", "mp3", "aac", "png", "jpg",
+                ],
+            )
+            .pick_files();
+        let Some(paths) = paths else { return };
+
+        for path in paths {
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| "unknown".into());
+
+            // Probe the file to determine kind and duration
+            let (kind, duration_str) = match VideoDecoder::open(&path) {
+                Ok(dec) => {
+                    let secs = dec.duration();
+                    let dur = format!("{:.1}s", secs);
+                    (proedit_ui::media_browser::MediaKind::Video, dur)
+                }
+                Err(_) => {
+                    // Treat as audio if video probe fails
+                    (proedit_ui::media_browser::MediaKind::Audio, "—".into())
+                }
+            };
+
+            let size = std::fs::metadata(&path)
+                .map(|m| {
+                    let mb = m.len() as f64 / (1024.0 * 1024.0);
+                    format!("{:.1} MB", mb)
+                })
+                .unwrap_or_else(|_| "—".into());
+
+            let color = match kind {
+                proedit_ui::media_browser::MediaKind::Video => Theme::accent(),
+                proedit_ui::media_browser::MediaKind::Audio => Theme::green(),
+                proedit_ui::media_browser::MediaKind::Image => Theme::amber(),
+                proedit_ui::media_browser::MediaKind::Gfx => Theme::purple(),
+            };
+
+            self.media_browser
+                .items
+                .push(proedit_ui::media_browser::MediaItem {
+                    name,
+                    kind,
+                    duration: duration_str,
+                    size,
+                    color,
+                });
+            info!("Imported: {:?}", path);
+        }
+    }
+
+    // ── Page Switching ──────────────────────────────────────────
+
+    fn apply_page_layout(&mut self, page: Page) {
+        match page {
+            Page::Cut => {
+                // Simplified timeline-focused layout
+                self.top_bar.inspector_open = false;
+                self.top_bar.color_wheels_open = false;
+                self.top_bar.audio_mixer_open = false;
+                self.curve_editor.visible = false;
+            }
+            Page::Edit => {
+                // Full NLE layout — inspector open
+                self.top_bar.inspector_open = true;
+                self.top_bar.color_wheels_open = false;
+                self.top_bar.audio_mixer_open = false;
+            }
+            Page::Motion => {
+                // Motion/keyframe focus — show curve editor
+                self.top_bar.inspector_open = true;
+                self.top_bar.color_wheels_open = false;
+                self.top_bar.audio_mixer_open = false;
+                self.curve_editor.visible = true;
+            }
+            Page::Color => {
+                // Color grading focus
+                self.top_bar.inspector_open = false;
+                self.top_bar.color_wheels_open = true;
+                self.top_bar.audio_mixer_open = false;
+                self.curve_editor.visible = false;
+            }
+            Page::Audio => {
+                // Audio mixing focus
+                self.top_bar.inspector_open = false;
+                self.top_bar.color_wheels_open = false;
+                self.top_bar.audio_mixer_open = true;
+                self.curve_editor.visible = false;
+            }
+            Page::Deliver => {
+                // Export focus
+                self.top_bar.inspector_open = false;
+                self.top_bar.color_wheels_open = false;
+                self.top_bar.audio_mixer_open = false;
+                self.curve_editor.visible = false;
+                self.export_dialog.open = true;
             }
         }
     }
@@ -393,21 +743,55 @@ impl eframe::App for ProEditApp {
             .show(ctx, |ui| {
                 let response = show_top_bar(ui, &mut self.top_bar);
                 for action in response.actions {
-                    if let proedit_ui::TopBarAction::OpenCommandPalette = action {
-                        self.command_palette.toggle();
+                    match action {
+                        TopBarAction::OpenCommandPalette => self.command_palette.toggle(),
+                        TopBarAction::PageChanged(page) => self.apply_page_layout(page),
+                        _ => {}
                     }
                 }
             });
 
+        // ── Title bar dirty indicator ─────────────────────────────
+        if self.dirty {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(
+                "ProEdit Studio [unsaved]".into(),
+            ));
+        }
+
         // ── Timeline at bottom ─────────────────────────────────
-        egui::TopBottomPanel::bottom("timeline_panel")
+        let timeline_actions = egui::TopBottomPanel::bottom("timeline_panel")
             .resizable(true)
             .min_height(120.0)
             .default_height(260.0)
             .frame(egui::Frame::none().fill(Theme::bg()))
-            .show(ctx, |ui| {
-                let _actions = show_timeline(ui, &mut self.timeline);
-            });
+            .show(ctx, |ui| show_timeline(ui, &mut self.timeline))
+            .inner;
+
+        // Handle timeline actions
+        for action in timeline_actions {
+            match action {
+                TimelineAction::TrimClip { .. } => {
+                    self.push_undo();
+                }
+                TimelineAction::DragClip { .. } => {
+                    self.push_undo();
+                }
+                TimelineAction::SplitClip { clip_id, offset } => {
+                    self.push_undo();
+                    self.timeline.selected_clip = Some(clip_id);
+                    self.razor_at_playhead();
+                    let _ = (clip_id, offset);
+                }
+                TimelineAction::SelectClip(id) => {
+                    self.timeline.selected_clip = id;
+                    self.sync_inspector();
+                }
+                TimelineAction::SeekTo(f) => {
+                    self.timeline.playhead = f;
+                }
+                _ => {}
+            }
+        }
 
         // ── Left panel (Media / Effects) ───────────────────────
         egui::SidePanel::left("left_panel")
@@ -422,14 +806,21 @@ impl eframe::App for ProEditApp {
 
         // ── Right panel (Inspector) ────────────────────────────
         if self.top_bar.inspector_open {
-            egui::SidePanel::right("inspector_panel")
+            let inspector_actions = egui::SidePanel::right("inspector_panel")
                 .resizable(true)
                 .default_width(240.0)
                 .min_width(200.0)
                 .frame(Theme::panel_frame())
-                .show(ctx, |ui| {
-                    show_inspector(ui, &mut self.inspector);
-                });
+                .show(ctx, |ui| show_inspector(ui, &mut self.inspector))
+                .inner;
+
+            for action in inspector_actions {
+                match action {
+                    proedit_ui::InspectorAction::PropertyChanged { .. } => {
+                        self.push_undo();
+                    }
+                }
+            }
         }
 
         // ── Central viewport ───────────────────────────────────
@@ -441,6 +832,13 @@ impl eframe::App for ProEditApp {
                     match action {
                         proedit_ui::viewer::ViewerAction::TogglePlay => {
                             self.playing = !self.playing;
+                            if let Some(ref mut engine) = self.audio_engine {
+                                if self.playing {
+                                    engine.play();
+                                } else {
+                                    engine.stop();
+                                }
+                            }
                         }
                         proedit_ui::viewer::ViewerAction::SetSpeed(s) => {
                             self.speed = s;
@@ -448,6 +846,21 @@ impl eframe::App for ProEditApp {
                     }
                 }
             });
+
+        // ── Curve editor (resizable bottom panel when visible) ──
+        if self.curve_editor.visible {
+            let fr = self.frame_rate();
+            egui::TopBottomPanel::bottom("curve_editor_panel")
+                .resizable(true)
+                .min_height(100.0)
+                .default_height(200.0)
+                .frame(egui::Frame::none().fill(Theme::bg()))
+                .show(ctx, |ui| {
+                    let empty_track = proedit_core::keyframe::KeyframeTrack::new("(none)");
+                    let _curve_actions =
+                        proedit_ui::show_curve_editor(ui, &mut self.curve_editor, &empty_track, fr);
+                });
+        }
 
         // ── Floating panels ────────────────────────────────────
         if self.top_bar.color_wheels_open {
@@ -457,29 +870,31 @@ impl eframe::App for ProEditApp {
             show_audio_mixer(ctx, &mut self.audio_mixer);
         }
 
+        // ── Export dialog ─────────────────────────────────────
+        let export_actions = show_export_dialog(ctx, &mut self.export_dialog);
+        for action in export_actions {
+            match action {
+                ExportDialogAction::StartExport {
+                    format,
+                    output_path,
+                } => {
+                    info!(
+                        "Export requested: {:?} -> {:?}",
+                        format.video_codec, output_path
+                    );
+                }
+                ExportDialogAction::Cancel => {
+                    info!("Export cancelled by user");
+                }
+            }
+        }
+
         // ── Command palette (must be last — topmost layer) ─────
         show_command_palette(ctx, &mut self.command_palette);
 
         // Handle command palette execution
         if let Some(cmd) = self.command_palette.executed.take() {
-            match cmd {
-                "Import Media" => info!("Import media requested (not yet implemented)"),
-                "Export Project" => info!("Export project requested (not yet implemented)"),
-                "Undo" => info!("Undo requested (not yet implemented)"),
-                "Razor at Playhead" => self.razor_at_playhead(),
-                "Ripple Delete" => self.delete_selected_clip(),
-                "Add Marker" => {
-                    self.timeline.markers.push(proedit_ui::timeline::Marker {
-                        frame: self.timeline.playhead,
-                        color: Theme::amber(),
-                    });
-                }
-                "Speed Ramp" => info!("Speed ramp requested (not yet implemented)"),
-                "Toggle Audio Mixer" => {
-                    self.top_bar.audio_mixer_open = !self.top_bar.audio_mixer_open;
-                }
-                _ => {}
-            }
+            self.execute_command(cmd);
         }
     }
 }

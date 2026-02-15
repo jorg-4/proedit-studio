@@ -111,6 +111,216 @@ pub enum EditCommand {
 }
 
 impl EditCommand {
+    /// Apply this command to a sequence, mutating it in place.
+    ///
+    /// Mutable `&mut self` because some variants store data during execution
+    /// (e.g., `RemoveClip` stores the removed clip for undo, `AddTrack` records
+    /// the generated track ID).
+    pub fn apply(&mut self, sequence: &mut crate::project::Sequence) {
+        match self {
+            Self::InsertClip {
+                track_id,
+                index,
+                clip,
+            } => {
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    track.insert_clip(*index, clip.clone());
+                }
+            }
+            Self::RemoveClip {
+                track_id,
+                index,
+                removed,
+            } => {
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    if let Some(crate::track::TrackItem::Clip(clip)) = track.remove_item(*index) {
+                        *removed = Some(clip);
+                    }
+                }
+            }
+            Self::MoveClip {
+                src_track_id,
+                src_index,
+                dst_track_id,
+                dst_index,
+            } => {
+                let clip = find_track_mut(sequence, *src_track_id)
+                    .and_then(|t| t.remove_item(*src_index))
+                    .and_then(|item| match item {
+                        crate::track::TrackItem::Clip(c) => Some(c),
+                        _ => None,
+                    });
+                if let Some(clip) = clip {
+                    if let Some(dst) = find_track_mut(sequence, *dst_track_id) {
+                        dst.insert_clip(*dst_index, clip);
+                    }
+                }
+            }
+            Self::RippleTrim {
+                track_id,
+                clip_index,
+                delta,
+                trim_in,
+            } => {
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    if let Some(clip) = track.clip_at_mut(*clip_index) {
+                        if *trim_in {
+                            clip.trim_in(*delta);
+                        } else {
+                            clip.trim_out(*delta);
+                        }
+                    }
+                }
+            }
+            Self::RollTrim {
+                track_id,
+                clip_index,
+                delta,
+            } => {
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    if let Some(clip) = track.clip_at_mut(*clip_index) {
+                        clip.trim_out(*delta);
+                    }
+                    if let Some(clip) = track.clip_at_mut(*clip_index + 1) {
+                        clip.trim_in(*delta);
+                    }
+                }
+            }
+            Self::Slip {
+                track_id,
+                clip_index,
+                delta,
+            } => {
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    if let Some(clip) = track.clip_at_mut(*clip_index) {
+                        clip.source_in = clip.source_in + *delta;
+                    }
+                }
+            }
+            Self::Slide {
+                track_id,
+                clip_index,
+                delta,
+            } => {
+                // Slide moves the clip within surrounding gaps. Adjust gap before
+                // and gap after by opposite amounts. When no gap exists, this is a
+                // no-op (the clip is pinned).
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    let idx = *clip_index;
+                    let d = *delta;
+                    // Shrink gap before, grow gap after (or vice versa)
+                    if idx > 0 {
+                        if let crate::track::TrackItem::Gap { duration } = &mut track.items[idx - 1]
+                        {
+                            *duration = *duration - d;
+                        }
+                    }
+                    if idx + 1 < track.items.len() {
+                        if let crate::track::TrackItem::Gap { duration } = &mut track.items[idx + 1]
+                        {
+                            *duration = *duration + d;
+                        }
+                    }
+                }
+            }
+            Self::SplitClip {
+                track_id,
+                clip_index,
+                offset,
+            } => {
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    // Read data from original clip
+                    let split_data = track.clip_at(*clip_index).map(|clip| {
+                        (
+                            clip.name.clone(),
+                            clip.source.clone(),
+                            clip.source_in,
+                            clip.duration,
+                            clip.speed,
+                            clip.enabled,
+                        )
+                    });
+                    if let Some((name, source, source_in, _orig_dur, speed, enabled)) = split_data {
+                        // Shorten left clip to offset
+                        if let Some(clip) = track.clip_at_mut(*clip_index) {
+                            clip.duration = *offset;
+                        }
+                        // Create right half
+                        let mut right = Clip::new(format!("{name} (split)"), source);
+                        right.source_in = source_in + *offset;
+                        right.duration = _orig_dur - *offset;
+                        right.speed = speed;
+                        right.enabled = enabled;
+                        track.insert_clip(*clip_index + 1, right);
+                    }
+                }
+            }
+            Self::ToggleClipEnabled {
+                track_id,
+                clip_index,
+            } => {
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    if let Some(clip) = track.clip_at_mut(*clip_index) {
+                        clip.enabled = !clip.enabled;
+                    }
+                }
+            }
+            Self::SetClipSpeed {
+                track_id,
+                clip_index,
+                new_speed,
+                ..
+            } => {
+                if let Some(track) = find_track_mut(sequence, *track_id) {
+                    if let Some(clip) = track.clip_at_mut(*clip_index) {
+                        clip.speed = *new_speed;
+                    }
+                }
+            }
+            Self::AddTrack {
+                kind,
+                name,
+                track_id,
+            } => {
+                let new_track = match kind {
+                    TrackKind::Video => {
+                        let t = Track::new_video(name.clone());
+                        let id = t.id;
+                        sequence.video_tracks.push(t);
+                        id
+                    }
+                    TrackKind::Audio => {
+                        let t = Track::new_audio(name.clone());
+                        let id = t.id;
+                        sequence.audio_tracks.push(t);
+                        id
+                    }
+                };
+                *track_id = Some(new_track);
+            }
+            Self::RemoveTrack {
+                track_id,
+                removed,
+                index,
+            } => {
+                if let Some(idx) = sequence.video_tracks.iter().position(|t| t.id == *track_id) {
+                    *index = Some(idx);
+                    *removed = Some(sequence.video_tracks.remove(idx));
+                } else if let Some(idx) =
+                    sequence.audio_tracks.iter().position(|t| t.id == *track_id)
+                {
+                    *index = Some(idx);
+                    *removed = Some(sequence.audio_tracks.remove(idx));
+                }
+            }
+            Self::Batch(commands) => {
+                for cmd in commands {
+                    cmd.apply(sequence);
+                }
+            }
+        }
+    }
+
     /// Produce the inverse command (for undo).
     pub fn inverse(&self) -> Self {
         match self {
@@ -233,6 +443,17 @@ impl EditCommand {
             }
         }
     }
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+/// Find a track mutably by UUID, searching both video and audio tracks.
+fn find_track_mut(sequence: &mut crate::project::Sequence, track_id: Uuid) -> Option<&mut Track> {
+    sequence
+        .video_tracks
+        .iter_mut()
+        .chain(sequence.audio_tracks.iter_mut())
+        .find(|track| track.id == track_id)
 }
 
 // ── Undo stack ──────────────────────────────────────────────────
@@ -405,6 +626,265 @@ mod tests {
         } else {
             panic!("expected RippleTrim inverse");
         }
+    }
+
+    // ── apply() tests ─────────────────────────────────────────
+
+    fn make_sequence_with_track() -> (crate::project::Sequence, Uuid) {
+        let seq = crate::project::Sequence::default();
+        let track_id = seq.video_tracks[0].id;
+        (seq, track_id)
+    }
+
+    #[test]
+    fn test_apply_insert_clip() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        let clip = make_test_clip("inserted");
+
+        let mut cmd = EditCommand::InsertClip {
+            track_id,
+            index: 0,
+            clip: clip.clone(),
+        };
+        cmd.apply(&mut seq);
+
+        assert_eq!(seq.video_tracks[0].clip_count(), 1);
+        assert_eq!(seq.video_tracks[0].clip_at(0).unwrap().name, "inserted");
+    }
+
+    #[test]
+    fn test_apply_remove_clip() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        let clip = make_test_clip("to_remove");
+        seq.video_tracks[0].append_clip(clip);
+
+        let mut cmd = EditCommand::RemoveClip {
+            track_id,
+            index: 0,
+            removed: None,
+        };
+        cmd.apply(&mut seq);
+
+        assert_eq!(seq.video_tracks[0].clip_count(), 0);
+        if let EditCommand::RemoveClip { removed, .. } = &cmd {
+            assert!(removed.is_some());
+            assert_eq!(removed.as_ref().unwrap().name, "to_remove");
+        }
+    }
+
+    #[test]
+    fn test_apply_move_clip() {
+        let (mut seq, src_track_id) = make_sequence_with_track();
+        seq.video_tracks[0].append_clip(make_test_clip("mover"));
+        // Add a second video track
+        let dst = Track::new_video("V2");
+        let dst_track_id = dst.id;
+        seq.video_tracks.push(dst);
+
+        let mut cmd = EditCommand::MoveClip {
+            src_track_id,
+            src_index: 0,
+            dst_track_id,
+            dst_index: 0,
+        };
+        cmd.apply(&mut seq);
+
+        assert_eq!(seq.video_tracks[0].clip_count(), 0);
+        assert_eq!(seq.video_tracks[1].clip_count(), 1);
+        assert_eq!(seq.video_tracks[1].clip_at(0).unwrap().name, "mover");
+    }
+
+    #[test]
+    fn test_apply_ripple_trim_out() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        seq.video_tracks[0].append_clip(make_test_clip("clip1"));
+        let orig_dur = seq.video_tracks[0].clip_at(0).unwrap().duration;
+
+        let delta = RationalTime::new(2, 1);
+        let mut cmd = EditCommand::RippleTrim {
+            track_id,
+            clip_index: 0,
+            delta,
+            trim_in: false,
+        };
+        cmd.apply(&mut seq);
+
+        let new_dur = seq.video_tracks[0].clip_at(0).unwrap().duration;
+        assert_eq!(new_dur, orig_dur + delta);
+    }
+
+    #[test]
+    fn test_apply_ripple_trim_in() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        seq.video_tracks[0].append_clip(make_test_clip("clip1"));
+        let orig_in = seq.video_tracks[0].clip_at(0).unwrap().source_in;
+        let orig_dur = seq.video_tracks[0].clip_at(0).unwrap().duration;
+
+        let delta = RationalTime::new(2, 1);
+        let mut cmd = EditCommand::RippleTrim {
+            track_id,
+            clip_index: 0,
+            delta,
+            trim_in: true,
+        };
+        cmd.apply(&mut seq);
+
+        let clip = seq.video_tracks[0].clip_at(0).unwrap();
+        assert_eq!(clip.source_in, orig_in + delta);
+        assert_eq!(clip.duration, orig_dur - delta);
+    }
+
+    #[test]
+    fn test_apply_toggle_enabled() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        seq.video_tracks[0].append_clip(make_test_clip("clip1"));
+        assert!(seq.video_tracks[0].clip_at(0).unwrap().enabled);
+
+        let mut cmd = EditCommand::ToggleClipEnabled {
+            track_id,
+            clip_index: 0,
+        };
+        cmd.apply(&mut seq);
+        assert!(!seq.video_tracks[0].clip_at(0).unwrap().enabled);
+
+        cmd.apply(&mut seq);
+        assert!(seq.video_tracks[0].clip_at(0).unwrap().enabled);
+    }
+
+    #[test]
+    fn test_apply_set_speed() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        seq.video_tracks[0].append_clip(make_test_clip("clip1"));
+
+        let mut cmd = EditCommand::SetClipSpeed {
+            track_id,
+            clip_index: 0,
+            old_speed: 1.0,
+            new_speed: 2.0,
+        };
+        cmd.apply(&mut seq);
+        assert_eq!(seq.video_tracks[0].clip_at(0).unwrap().speed, 2.0);
+    }
+
+    #[test]
+    fn test_apply_split_clip() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        seq.video_tracks[0].append_clip(make_test_clip("original"));
+        let orig_dur = seq.video_tracks[0].clip_at(0).unwrap().duration;
+        let split_at = RationalTime::new(4, 1);
+
+        let mut cmd = EditCommand::SplitClip {
+            track_id,
+            clip_index: 0,
+            offset: split_at,
+        };
+        cmd.apply(&mut seq);
+
+        assert_eq!(seq.video_tracks[0].clip_count(), 2);
+        let left = seq.video_tracks[0].clip_at(0).unwrap();
+        let right = seq.video_tracks[0].clip_at(1).unwrap();
+        assert_eq!(left.duration, split_at);
+        assert_eq!(right.duration, orig_dur - split_at);
+        assert!(right.name.contains("split"));
+    }
+
+    #[test]
+    fn test_apply_add_track() {
+        let (mut seq, _) = make_sequence_with_track();
+        let initial_video = seq.video_tracks.len();
+
+        let mut cmd = EditCommand::AddTrack {
+            kind: TrackKind::Video,
+            name: "V2".into(),
+            track_id: None,
+        };
+        cmd.apply(&mut seq);
+
+        assert_eq!(seq.video_tracks.len(), initial_video + 1);
+        if let EditCommand::AddTrack { track_id, .. } = &cmd {
+            assert!(track_id.is_some());
+        }
+    }
+
+    #[test]
+    fn test_apply_remove_track() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        assert_eq!(seq.video_tracks.len(), 1);
+
+        let mut cmd = EditCommand::RemoveTrack {
+            track_id,
+            removed: None,
+            index: None,
+        };
+        cmd.apply(&mut seq);
+
+        assert_eq!(seq.video_tracks.len(), 0);
+        if let EditCommand::RemoveTrack { removed, index, .. } = &cmd {
+            assert!(removed.is_some());
+            assert_eq!(*index, Some(0));
+        }
+    }
+
+    #[test]
+    fn test_apply_slip() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        seq.video_tracks[0].append_clip(make_test_clip("clip1"));
+        let orig_in = seq.video_tracks[0].clip_at(0).unwrap().source_in;
+        let orig_dur = seq.video_tracks[0].clip_at(0).unwrap().duration;
+
+        let delta = RationalTime::new(3, 1);
+        let mut cmd = EditCommand::Slip {
+            track_id,
+            clip_index: 0,
+            delta,
+        };
+        cmd.apply(&mut seq);
+
+        let clip = seq.video_tracks[0].clip_at(0).unwrap();
+        assert_eq!(clip.source_in, orig_in + delta);
+        assert_eq!(clip.duration, orig_dur); // Duration unchanged
+    }
+
+    #[test]
+    fn test_apply_batch() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        let mut cmd = EditCommand::Batch(vec![
+            EditCommand::InsertClip {
+                track_id,
+                index: 0,
+                clip: make_test_clip("batch1"),
+            },
+            EditCommand::InsertClip {
+                track_id,
+                index: 1,
+                clip: make_test_clip("batch2"),
+            },
+        ]);
+        cmd.apply(&mut seq);
+
+        assert_eq!(seq.video_tracks[0].clip_count(), 2);
+        assert_eq!(seq.video_tracks[0].clip_at(0).unwrap().name, "batch1");
+        assert_eq!(seq.video_tracks[0].clip_at(1).unwrap().name, "batch2");
+    }
+
+    #[test]
+    fn test_apply_then_inverse_restores() {
+        let (mut seq, track_id) = make_sequence_with_track();
+        let clip = make_test_clip("roundtrip");
+
+        // Apply insert
+        let mut cmd = EditCommand::InsertClip {
+            track_id,
+            index: 0,
+            clip: clip.clone(),
+        };
+        cmd.apply(&mut seq);
+        assert_eq!(seq.video_tracks[0].clip_count(), 1);
+
+        // Apply inverse (remove)
+        let mut inv = cmd.inverse();
+        inv.apply(&mut seq);
+        assert_eq!(seq.video_tracks[0].clip_count(), 0);
     }
 
     #[test]
