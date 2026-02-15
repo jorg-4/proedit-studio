@@ -124,9 +124,9 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
     ui.set_max_height(height);
 
     ui.horizontal_centered(|ui| {
-        ui.spacing_mut().item_spacing = Vec2::new(8.0, 0.0);
+        ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
 
-        // ── Traffic lights ─────────────────────────────────
+        // ── Traffic lights (macOS chrome — domain-specific) ──
         let tl_colors = [
             Color32::from_rgb(255, 95, 87),
             Color32::from_rgb(255, 189, 46),
@@ -136,26 +136,34 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
             let (resp, painter) = ui.allocate_painter(Vec2::splat(12.0), Sense::hover());
             let center = resp.rect.center();
             painter.circle_filled(center, 6.0, *color);
-            painter.circle_stroke(center, 6.0, Stroke::new(0.5, Theme::with_alpha(*color, 85)));
+            painter.circle_stroke(
+                center,
+                6.0,
+                Stroke::new(Theme::STROKE_SUBTLE, Theme::with_alpha(*color, 85)),
+            );
         }
 
-        ui.add_space(8.0);
+        ui.add_space(Theme::SPACE_SM);
 
         // ── Logo ───────────────────────────────────────────
         ui.label(
             egui::RichText::new("ProEdit")
                 .color(Theme::t1())
-                .size(14.0)
+                .size(Theme::FONT_MD)
                 .strong(),
         );
-        ui.label(egui::RichText::new("Studio").color(Theme::t3()).size(14.0));
+        ui.label(
+            egui::RichText::new("Studio")
+                .color(Theme::t3())
+                .size(Theme::FONT_MD),
+        );
 
-        ui.add_space(12.0);
+        ui.add_space(Theme::SPACE_MD);
 
         // ── Left panel tabs ────────────────────────────────
         let tab_frame = egui::Frame::none()
-            .fill(Color32::from_rgba_premultiplied(2, 2, 2, 8))
-            .rounding(Rounding::same(8.0))
+            .fill(Theme::input_bg())
+            .rounding(Rounding::same(Theme::RADIUS))
             .inner_margin(egui::Margin::same(2.0));
 
         tab_frame.show(ui, |ui| {
@@ -176,19 +184,21 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
 
                     let btn = egui::Frame::none()
                         .fill(bg)
-                        .rounding(Rounding::same(6.0))
-                        .inner_margin(egui::Margin::symmetric(8.0, 3.0));
+                        .rounding(Rounding::same(Theme::RADIUS))
+                        .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 3.0));
 
                     let resp = btn
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
+                                ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_XS, 0.0);
                                 ui.label(
-                                    egui::RichText::new(tab.icon()).size(10.0).color(text_color),
+                                    egui::RichText::new(tab.icon())
+                                        .size(Theme::FONT_XS)
+                                        .color(text_color),
                                 );
                                 ui.label(
                                     egui::RichText::new(tab.label())
-                                        .size(10.0)
+                                        .size(Theme::FONT_XS)
                                         .color(text_color),
                                 );
                             });
@@ -208,8 +218,8 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
 
         // ── Page navigation ────────────────────────────────
         let nav_frame = egui::Frame::none()
-            .fill(Color32::from_rgba_premultiplied(2, 2, 2, 6))
-            .rounding(Rounding::same(9.0))
+            .fill(Theme::input_bg())
+            .rounding(Rounding::same(Theme::RADIUS))
             .inner_margin(egui::Margin::same(2.0));
 
         nav_frame.show(ui, |ui| {
@@ -230,21 +240,21 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
 
                     let btn = egui::Frame::none()
                         .fill(bg)
-                        .rounding(Rounding::same(7.0))
-                        .inner_margin(egui::Margin::symmetric(12.0, 4.0));
+                        .rounding(Rounding::same(Theme::RADIUS))
+                        .inner_margin(egui::Margin::symmetric(Theme::SPACE_MD, Theme::SPACE_XS));
 
                     let resp = btn
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
+                                ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_XS, 0.0);
                                 ui.label(
                                     egui::RichText::new(page.icon())
-                                        .size(10.5)
+                                        .size(Theme::FONT_XS)
                                         .color(text_color),
                                 );
                                 ui.label(
                                     egui::RichText::new(page.label())
-                                        .size(10.5)
+                                        .size(Theme::FONT_XS)
                                         .color(text_color),
                                 );
                             });
@@ -301,8 +311,8 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
 
             let btn = egui::Frame::none()
                 .fill(bg)
-                .rounding(Rounding::same(8.0))
-                .inner_margin(egui::Margin::symmetric(6.0, 4.0));
+                .rounding(Rounding::same(Theme::RADIUS))
+                .inner_margin(egui::Margin::symmetric(6.0, Theme::SPACE_XS));
 
             let resp = btn
                 .show(ui, |ui| {
@@ -312,7 +322,7 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                         r.rect.center(),
                         egui::Align2::CENTER_CENTER,
                         tool.icon,
-                        egui::FontId::proportional(11.0),
+                        egui::FontId::proportional(Theme::FONT_XS),
                         text_color,
                     );
                 })

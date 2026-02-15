@@ -7,9 +7,11 @@
 //! - Encoding and muxing
 
 pub mod decoder;
+pub mod export;
 pub mod probe;
 
 pub use decoder::{VideoDecoder, VideoFrame};
+pub use export::{ExportCancel, ExportFormat, ExportJob, ExportProgress, VideoCodec};
 pub use probe::MediaProbe;
 
 /// Initialize FFmpeg (call once at startup).

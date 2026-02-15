@@ -3,6 +3,7 @@
 use crate::theme::Theme;
 use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 
+// Domain-specific constants
 const WHEEL_SIZE: f32 = 70.0;
 const WHEEL_RADIUS: f32 = WHEEL_SIZE / 2.0;
 
@@ -41,13 +42,13 @@ pub fn show_color_wheels(ctx: &egui::Context, state: &mut ColorWheelsState, time
                         // 4 color wheels
                         for (i, label) in WHEEL_LABELS.iter().enumerate() {
                             ui.vertical(|ui| {
-                                ui.spacing_mut().item_spacing = Vec2::new(0.0, 4.0);
+                                ui.spacing_mut().item_spacing = Vec2::new(0.0, Theme::SPACE_XS);
 
                                 // Label
                                 ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
                                     ui.label(
                                         egui::RichText::new(label.to_uppercase())
-                                            .size(8.0)
+                                            .size(Theme::FONT_XS)
                                             .color(Theme::t3())
                                             .strong(),
                                     );
@@ -60,12 +61,11 @@ pub fn show_color_wheels(ctx: &egui::Context, state: &mut ColorWheelsState, time
                         // Separator
                         let (sep_resp, sep_painter) =
                             ui.allocate_painter(Vec2::new(0.5, 70.0), egui::Sense::hover());
-                        // Gradient: transparent → white .05 → transparent
                         let sep_rect = sep_resp.rect;
                         sep_painter.rect_filled(
                             Rect::from_center_size(sep_rect.center(), Vec2::new(0.5, 50.0)),
                             0.0,
-                            Color32::from_rgba_premultiplied(255, 255, 255, 13),
+                            Theme::white_06(),
                         );
 
                         // Scopes section
@@ -73,7 +73,7 @@ pub fn show_color_wheels(ctx: &egui::Context, state: &mut ColorWheelsState, time
                             ui.spacing_mut().item_spacing = Vec2::new(0.0, 6.0);
                             ui.label(
                                 egui::RichText::new("SCOPES")
-                                    .size(8.0)
+                                    .size(Theme::FONT_XS)
                                     .color(Theme::t3())
                                     .strong(),
                             );
@@ -92,7 +92,7 @@ fn draw_wheel(ui: &mut egui::Ui, index: usize, state: &mut ColorWheelsState, _ti
     let center = response.rect.center();
     let radius = WHEEL_RADIUS - 2.0;
 
-    // Outer ring — approximate conic gradient with segments
+    // Outer ring — approximate conic gradient with segments (domain-specific color computation)
     let segments = 36;
     for seg in 0..segments {
         let angle0 = (seg as f32 / segments as f32) * std::f32::consts::TAU;
@@ -120,7 +120,7 @@ fn draw_wheel(ui: &mut egui::Ui, index: usize, state: &mut ColorWheelsState, _ti
     painter.circle_stroke(
         center,
         radius * 0.65,
-        Stroke::new(0.5, Color32::from_rgba_premultiplied(255, 255, 255, 15)),
+        Stroke::new(Theme::STROKE_SUBTLE, Theme::white_06()),
     );
 
     // Indicator dot
@@ -159,14 +159,14 @@ fn draw_scope(ui: &mut egui::Ui, width: f32, height: f32, color: Color32, time: 
     let rect = response.rect;
 
     // Background
-    painter.rect_filled(rect, Rounding::same(4.0), Color32::from_rgb(7, 7, 13));
+    painter.rect_filled(rect, Rounding::same(4.0), Theme::bg());
 
     // Grid lines
     for i in 1..=4 {
         let y = rect.top() + (i as f32 / 5.0) * height;
         painter.line_segment(
             [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
-            Stroke::new(0.5, Color32::from_rgba_premultiplied(255, 255, 255, 9)),
+            Stroke::new(Theme::STROKE_SUBTLE, Theme::white_04()),
         );
     }
 

@@ -1,0 +1,17 @@
+[package]
+name = "proedit-plugin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Plugin hosting (OFX + WASM) for ProEdit Studio"
+
+[dependencies]
+proedit-core.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+
+[features]
+default = []
+# wasm = ["wasmtime"]  # Future: wasmtime dep
+# ofx = []             # Future: C FFI linking

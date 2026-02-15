@@ -1,0 +1,21 @@
+[package]
+name = "proedit-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Integration tests for ProEdit Studio"
+publish = false
+
+[dependencies]
+proedit-core.workspace = true
+proedit-timeline.workspace = true
+proedit-media.workspace = true
+proedit-gpu.workspace = true
+proedit-audio.workspace = true
+proedit-effects.workspace = true
+proedit-ai.workspace = true
+proedit-tracking.workspace = true
+proedit-color.workspace = true
+proedit-scripting.workspace = true
+proedit-plugin.workspace = true
+uuid.workspace = true

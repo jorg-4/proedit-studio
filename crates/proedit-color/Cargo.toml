@@ -1,0 +1,12 @@
+[package]
+name = "proedit-color"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Color management, HDR, and LUT support for ProEdit Studio"
+
+[dependencies]
+proedit-core.workspace = true
+glam.workspace = true
+serde.workspace = true
+thiserror.workspace = true

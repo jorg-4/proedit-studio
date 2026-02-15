@@ -59,25 +59,19 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
     ui.spacing_mut().item_spacing = Vec2::new(0.0, 6.0);
 
     // ── Search bar ─────────────────────────────────────────
-    let search_frame = egui::Frame::none()
-        .fill(Color32::from_rgba_premultiplied(2, 2, 2, 8))
-        .stroke(Stroke::new(0.5, Theme::with_alpha(Color32::WHITE, 10)))
-        .rounding(Rounding::same(8.0))
-        .inner_margin(egui::Margin::symmetric(8.0, 5.0));
-
-    search_frame.show(ui, |ui| {
+    Theme::input_frame().show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
             ui.label(
                 egui::RichText::new("\u{1F50D}")
-                    .size(11.0)
+                    .size(Theme::FONT_XS)
                     .color(Theme::t4()),
             );
             let resp = ui.add(
                 egui::TextEdit::singleline(&mut state.search_query)
                     .hint_text("Search media\u{2026}")
                     .desired_width(ui.available_width() - 20.0)
-                    .font(egui::FontId::proportional(10.5))
+                    .font(egui::FontId::proportional(Theme::FONT_XS))
                     .frame(false),
             );
             if !state.search_query.is_empty() && ui.small_button("\u{00D7}").clicked() {
@@ -89,7 +83,7 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
 
     // ── Filter chips ───────────────────────────────────────
     ui.horizontal_wrapped(|ui| {
-        ui.spacing_mut().item_spacing = Vec2::new(4.0, 4.0);
+        ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_XS, Theme::SPACE_XS);
         for (i, filter) in FILTERS.iter().enumerate() {
             let is_active = state.active_filter == i;
             let text_color = if is_active {
@@ -100,23 +94,27 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
             let bg = if is_active {
                 Theme::accent_subtle()
             } else {
-                Color32::from_rgba_premultiplied(2, 2, 2, 8)
+                Theme::input_bg()
             };
             let border = if is_active {
-                Stroke::new(0.5, Theme::with_alpha(Theme::accent(), 60))
+                Stroke::new(Theme::STROKE_SUBTLE, Theme::with_alpha(Theme::accent(), 60))
             } else {
-                Stroke::new(0.5, Color32::from_rgba_premultiplied(2, 2, 2, 10))
+                Stroke::new(Theme::STROKE_SUBTLE, Theme::white_04())
             };
 
             let chip = egui::Frame::none()
                 .fill(bg)
                 .stroke(border)
-                .rounding(Rounding::same(12.0))
-                .inner_margin(egui::Margin::symmetric(8.0, 2.0));
+                .rounding(Rounding::same(Theme::RADIUS))
+                .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 2.0));
 
             let resp = chip
                 .show(ui, |ui| {
-                    ui.label(egui::RichText::new(*filter).size(9.0).color(text_color));
+                    ui.label(
+                        egui::RichText::new(*filter)
+                            .size(Theme::FONT_XS)
+                            .color(text_color),
+                    );
                 })
                 .response;
 
@@ -139,20 +137,16 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
             if state.items.is_empty() {
                 ui.add_space(ui.available_height() * 0.2);
                 ui.vertical_centered(|ui| {
-                    ui.spacing_mut().item_spacing = Vec2::new(0.0, 8.0);
-                    ui.label(
-                        egui::RichText::new("+")
-                            .size(28.0)
-                            .color(Color32::from_rgba_premultiplied(255, 255, 255, 25)),
-                    );
+                    ui.spacing_mut().item_spacing = Vec2::new(0.0, Theme::SPACE_SM);
+                    ui.label(egui::RichText::new("+").size(28.0).color(Theme::white_10()));
                     ui.label(
                         egui::RichText::new("Import Media  \u{2318}I")
-                            .size(11.0)
+                            .size(Theme::FONT_XS)
                             .color(Theme::t4()),
                     );
                     ui.label(
                         egui::RichText::new("or drag files here")
-                            .size(9.0)
+                            .size(Theme::FONT_XS)
                             .color(Theme::t4()),
                     );
                 });
@@ -170,13 +164,13 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
                 }
 
                 let item_frame = egui::Frame::none()
-                    .rounding(Rounding::same(8.0))
-                    .inner_margin(egui::Margin::symmetric(8.0, 5.0));
+                    .rounding(Rounding::same(Theme::RADIUS))
+                    .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 5.0));
 
                 let resp = item_frame
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.spacing_mut().item_spacing = Vec2::new(8.0, 0.0);
+                            ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
 
                             // Thumbnail
                             let (thumb_resp, thumb_painter) =
@@ -191,7 +185,7 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
                                 thumb_rect.center(),
                                 egui::Align2::CENTER_CENTER,
                                 item.kind.icon(),
-                                egui::FontId::proportional(10.0),
+                                egui::FontId::proportional(Theme::FONT_XS),
                                 Theme::with_alpha(item.color, 200),
                             );
 
@@ -200,7 +194,7 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
                                 ui.spacing_mut().item_spacing = Vec2::new(0.0, 2.0);
                                 ui.label(
                                     egui::RichText::new(item.name.as_str())
-                                        .size(10.0)
+                                        .size(Theme::FONT_XS)
                                         .color(Theme::t1()),
                                 );
                                 ui.label(
@@ -208,7 +202,7 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
                                         "{} \u{00B7} {}",
                                         item.duration, item.size
                                     ))
-                                    .size(8.5)
+                                    .size(Theme::FONT_XS)
                                     .color(Theme::t4())
                                     .family(egui::FontFamily::Monospace),
                                 );
@@ -220,32 +214,32 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
                 if resp.hovered() {
                     ui.painter().rect_filled(
                         resp.rect,
-                        Rounding::same(8.0),
-                        Color32::from_rgba_premultiplied(2, 2, 2, 10),
+                        Rounding::same(Theme::RADIUS),
+                        Theme::white_04(),
                     );
                 }
             }
 
-            ui.add_space(8.0);
+            ui.add_space(Theme::SPACE_SM);
 
             // ── Import button ──────────────────────────────
             let import_frame = egui::Frame::none()
-                .stroke(Stroke::new(1.0, Theme::t4()))
-                .rounding(Rounding::same(10.0))
+                .stroke(Stroke::new(Theme::STROKE_EMPHASIS, Theme::t4()))
+                .rounding(Rounding::same(Theme::RADIUS))
                 .inner_margin(egui::Margin::symmetric(0.0, 14.0));
 
             let import_resp = import_frame
                 .show(ui, |ui| {
                     ui.vertical_centered(|ui| {
-                        ui.spacing_mut().item_spacing = Vec2::new(0.0, 4.0);
+                        ui.spacing_mut().item_spacing = Vec2::new(0.0, Theme::SPACE_XS);
                         ui.label(
                             egui::RichText::new("+")
-                                .size(16.0)
+                                .size(Theme::FONT_MD)
                                 .color(Theme::with_alpha(Theme::t3(), 128)),
                         );
                         ui.label(
                             egui::RichText::new("Import Media")
-                                .size(10.0)
+                                .size(Theme::FONT_XS)
                                 .color(Theme::t4()),
                         );
                     });
@@ -255,8 +249,8 @@ pub fn show_media_browser(ui: &mut egui::Ui, state: &mut MediaBrowserState) {
             if import_resp.hovered() {
                 ui.painter().rect_stroke(
                     import_resp.rect,
-                    Rounding::same(10.0),
-                    Stroke::new(1.0, Theme::accent()),
+                    Rounding::same(Theme::RADIUS),
+                    Stroke::new(Theme::STROKE_EMPHASIS, Theme::accent()),
                 );
             }
         });

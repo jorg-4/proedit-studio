@@ -1,7 +1,8 @@
 //! Floating audio mixer panel.
 
 use crate::theme::Theme;
-use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
+use crate::widgets;
+use egui::{self, Color32, Pos2, Rect, Rounding, Vec2};
 
 // ── State ──────────────────────────────────────────────────────
 
@@ -31,15 +32,15 @@ pub fn show_audio_mixer(ctx: &egui::Context, state: &mut AudioMixerState) {
         .anchor(egui::Align2::RIGHT_BOTTOM, Vec2::new(-20.0, -20.0))
         .show(ctx, |ui| {
             Theme::glass_frame()
-                .inner_margin(egui::Margin::symmetric(16.0, 14.0))
+                .inner_margin(egui::Margin::symmetric(Theme::SPACE_MD, 14.0))
                 .show(ui, |ui| {
                     ui.set_width(200.0);
-                    ui.spacing_mut().item_spacing = Vec2::new(0.0, 8.0);
+                    ui.spacing_mut().item_spacing = Vec2::new(0.0, Theme::SPACE_SM);
 
                     // Header
                     ui.label(
                         egui::RichText::new("AUDIO MIXER")
-                            .size(9.0)
+                            .size(Theme::FONT_XS)
                             .color(Theme::t3())
                             .strong(),
                     );
@@ -53,11 +54,41 @@ pub fn show_audio_mixer(ctx: &egui::Context, state: &mut AudioMixerState) {
                         level_meter(ui, label, state.levels[i]);
                     }
 
-                    ui.add_space(4.0);
+                    ui.add_space(Theme::SPACE_XS);
 
                     // Toggles
-                    mixer_toggle(ui, "Loudness Metering", &mut state.loudness_metering);
-                    mixer_toggle(ui, "Limiter", &mut state.limiter);
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
+                        if widgets::toggle_switch(ui, state.loudness_metering) {
+                            state.loudness_metering = !state.loudness_metering;
+                        }
+                        let text_color = if state.loudness_metering {
+                            Theme::t1()
+                        } else {
+                            Theme::t3()
+                        };
+                        ui.label(
+                            egui::RichText::new("Loudness Metering")
+                                .size(Theme::FONT_XS)
+                                .color(text_color),
+                        );
+                    });
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
+                        if widgets::toggle_switch(ui, state.limiter) {
+                            state.limiter = !state.limiter;
+                        }
+                        let text_color = if state.limiter {
+                            Theme::t1()
+                        } else {
+                            Theme::t3()
+                        };
+                        ui.label(
+                            egui::RichText::new("Limiter")
+                                .size(Theme::FONT_XS)
+                                .color(text_color),
+                        );
+                    });
                 });
         });
 }
@@ -69,7 +100,11 @@ fn mixer_slider(ui: &mut egui::Ui, label: &str, value: &mut f32, accent: Color32
         // Label
         ui.allocate_ui(Vec2::new(42.0, 20.0), |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(egui::RichText::new(label).size(9.0).color(Theme::t3()));
+                ui.label(
+                    egui::RichText::new(label)
+                        .size(Theme::FONT_XS)
+                        .color(Theme::t3()),
+                );
             });
         });
 
@@ -80,11 +115,7 @@ fn mixer_slider(ui: &mut egui::Ui, label: &str, value: &mut f32, accent: Color32
         let track_rect = track_resp.rect;
         let bar_rect = Rect::from_center_size(track_rect.center(), Vec2::new(track_width, 4.0));
 
-        track_painter.rect_filled(
-            bar_rect,
-            Rounding::same(2.0),
-            Color32::from_rgba_premultiplied(255, 255, 255, 10),
-        );
+        track_painter.rect_filled(bar_rect, Rounding::same(2.0), Theme::white_10());
 
         let frac = (*value / 100.0).clamp(0.0, 1.0);
         let fill_rect = Rect::from_min_size(bar_rect.min, Vec2::new(bar_rect.width() * frac, 4.0));
@@ -103,7 +134,7 @@ fn mixer_slider(ui: &mut egui::Ui, label: &str, value: &mut f32, accent: Color32
         // Value
         ui.label(
             egui::RichText::new(format!("{:.0}%", *value))
-                .size(9.0)
+                .size(Theme::FONT_XS)
                 .color(Theme::t2())
                 .family(egui::FontFamily::Monospace),
         );
@@ -116,7 +147,11 @@ fn level_meter(ui: &mut egui::Ui, label: &str, level: f32) {
 
         // Label
         ui.allocate_ui(Vec2::new(20.0, 16.0), |ui| {
-            ui.label(egui::RichText::new(label).size(9.0).color(Theme::t4()));
+            ui.label(
+                egui::RichText::new(label)
+                    .size(Theme::FONT_XS)
+                    .color(Theme::t4()),
+            );
         });
 
         // Meter bar
@@ -125,11 +160,7 @@ fn level_meter(ui: &mut egui::Ui, label: &str, level: f32) {
             ui.allocate_painter(Vec2::new(bar_width, 4.0), egui::Sense::hover());
         let bar_rect = bar_resp.rect;
 
-        bar_painter.rect_filled(
-            bar_rect,
-            Rounding::same(2.0),
-            Color32::from_rgba_premultiplied(255, 255, 255, 10),
-        );
+        bar_painter.rect_filled(bar_rect, Rounding::same(2.0), Theme::white_10());
 
         let fill_width = bar_rect.width() * level;
         let fill_color = if level > 0.9 {
@@ -146,52 +177,9 @@ fn level_meter(ui: &mut egui::Ui, label: &str, level: f32) {
         let db = level * 100.0 - 100.0;
         ui.label(
             egui::RichText::new(format!("{:.0}dB", db))
-                .size(8.0)
+                .size(Theme::FONT_XS)
                 .color(Theme::t4())
                 .family(egui::FontFamily::Monospace),
         );
-    });
-}
-
-fn mixer_toggle(ui: &mut egui::Ui, label: &str, on: &mut bool) {
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing = Vec2::new(8.0, 0.0);
-
-        let desired_size = Vec2::new(32.0, 18.0);
-        let (resp, painter) = ui.allocate_painter(desired_size, egui::Sense::click());
-
-        if resp.clicked() {
-            *on = !*on;
-        }
-
-        let rect = resp.rect;
-        let (track_bg, track_border) = if *on {
-            (
-                Theme::with_alpha(Theme::accent(), 102),
-                Theme::with_alpha(Theme::accent(), 153),
-            )
-        } else {
-            (
-                Color32::from_rgba_premultiplied(255, 255, 255, 15),
-                Color32::from_rgba_premultiplied(255, 255, 255, 20),
-            )
-        };
-        painter.rect_filled(rect, Rounding::same(9.0), track_bg);
-        painter.rect_stroke(rect, Rounding::same(9.0), Stroke::new(0.5, track_border));
-
-        let thumb_x = if *on {
-            rect.right() - 9.0
-        } else {
-            rect.left() + 9.0
-        };
-        let thumb_color = if *on {
-            Theme::accent()
-        } else {
-            Color32::from_rgba_premultiplied(255, 255, 255, 64)
-        };
-        painter.circle_filled(Pos2::new(thumb_x, rect.center().y), 7.0, thumb_color);
-
-        let text_color = if *on { Theme::t1() } else { Theme::t3() };
-        ui.label(egui::RichText::new(label).size(10.5).color(text_color));
     });
 }

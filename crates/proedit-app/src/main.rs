@@ -414,11 +414,7 @@ impl eframe::App for ProEditApp {
             .resizable(true)
             .default_width(220.0)
             .min_width(180.0)
-            .frame(
-                egui::Frame::none()
-                    .fill(Theme::bg1())
-                    .inner_margin(egui::Margin::same(8.0)),
-            )
+            .frame(Theme::panel_frame())
             .show(ctx, |ui| match self.top_bar.left_tab {
                 LeftTab::Media => show_media_browser(ui, &mut self.media_browser),
                 LeftTab::Effects => show_effects_panel(ui, &mut self.effects_panel),
@@ -430,11 +426,7 @@ impl eframe::App for ProEditApp {
                 .resizable(true)
                 .default_width(240.0)
                 .min_width(200.0)
-                .frame(
-                    egui::Frame::none()
-                        .fill(Theme::bg1())
-                        .inner_margin(egui::Margin::same(8.0)),
-                )
+                .frame(Theme::panel_frame())
                 .show(ctx, |ui| {
                     show_inspector(ui, &mut self.inspector);
                 });

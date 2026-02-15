@@ -1,6 +1,9 @@
 //! Full-featured timeline with toolbar, ruler, track headers, clips, and playhead.
 
+use crate::snapping::SnappingEngine;
 use crate::theme::Theme;
+use crate::trim::{ClipDragState, TrimState};
+use crate::widgets;
 use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 
 // ── Clip data ────────────────────────────────────────────────────
@@ -28,6 +31,7 @@ const TRACK_HEIGHT: f32 = 36.0;
 const RULER_HEIGHT: f32 = 20.0;
 const TOOLBAR_HEIGHT: f32 = 28.0;
 const HEADER_WIDTH: f32 = 50.0;
+const EMPTY_ICON_SIZE: f32 = 28.0;
 
 // ── Marker ─────────────────────────────────────────────────────
 
@@ -53,6 +57,15 @@ pub struct TimelineState {
     pub hovered_clip: Option<usize>,
     pub fps: f32,
     pub clips: Vec<TimelineClip>,
+    // Interactive features
+    pub trim_state: Option<TrimState>,
+    pub drag_state: Option<ClipDragState>,
+    pub selection: Vec<usize>,
+    pub rubber_band: Option<Rect>,
+    pub razor_mode: bool,
+    pub snapping: SnappingEngine,
+    pub track_locked: [bool; TRACK_COUNT],
+    pub track_solo: [bool; TRACK_COUNT],
 }
 
 impl Default for TimelineState {
@@ -69,6 +82,14 @@ impl Default for TimelineState {
             hovered_clip: None,
             fps: 24.0,
             clips: Vec::new(),
+            trim_state: None,
+            drag_state: None,
+            selection: Vec::new(),
+            rubber_band: None,
+            razor_mode: false,
+            snapping: SnappingEngine::new(),
+            track_locked: [false; TRACK_COUNT],
+            track_solo: [false; TRACK_COUNT],
         }
     }
 }
@@ -84,6 +105,22 @@ pub enum TimelineAction {
     ToggleRipple,
     ZoomIn,
     ZoomOut,
+    TrimClip {
+        clip_id: usize,
+        new_start: f32,
+        new_dur: f32,
+    },
+    DragClip {
+        clip_id: usize,
+        new_start: f32,
+        new_track: usize,
+    },
+    SplitClip {
+        clip_id: usize,
+        offset: f32,
+    },
+    MultiSelect(Vec<usize>),
+    DeselectAll,
 }
 
 // ── Rendering ──────────────────────────────────────────────────
@@ -97,7 +134,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
         draw_toolbar(ui, state, &mut actions);
 
         // ── Timeline body ──────────────────────────────────
-        let body_height = available.y - TOOLBAR_HEIGHT - 4.0;
+        let body_height = available.y - TOOLBAR_HEIGHT - Theme::SPACE_XS;
         let body_width = available.x;
 
         ui.horizontal(|ui| {
@@ -135,7 +172,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         Vec2::new(clips_width, TRACK_HEIGHT),
                     );
                     let lane_bg = if i % 2 == 0 {
-                        Color32::from_rgba_premultiplied(255, 255, 255, 2)
+                        Theme::white_02()
                     } else {
                         Color32::TRANSPARENT
                     };
@@ -147,7 +184,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                             Pos2::new(lane_rect.left(), lane_rect.bottom()),
                             Pos2::new(lane_rect.right(), lane_rect.bottom()),
                         ],
-                        Stroke::new(0.5, Color32::from_rgba_premultiplied(255, 255, 255, 4)),
+                        Stroke::new(Theme::STROKE_SUBTLE, Theme::white_04()),
                     );
                 }
 
@@ -158,17 +195,17 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         tracks_top + (TRACK_COUNT as f32 * TRACK_HEIGHT) * 0.5,
                     );
                     painter.text(
-                        Pos2::new(center.x, center.y - 8.0),
+                        Pos2::new(center.x, center.y - Theme::SPACE_SM),
                         egui::Align2::CENTER_CENTER,
                         "\u{25AC}",
-                        egui::FontId::proportional(28.0),
-                        Color32::from_rgba_premultiplied(255, 255, 255, 25),
+                        egui::FontId::proportional(EMPTY_ICON_SIZE),
+                        Theme::white_10(),
                     );
                     painter.text(
-                        Pos2::new(center.x, center.y + 18.0),
+                        Pos2::new(center.x, center.y + Theme::SPACE_LG - 6.0),
                         egui::Align2::CENTER_CENTER,
                         "Drag media here to start editing",
-                        egui::FontId::proportional(10.0),
+                        egui::FontId::proportional(Theme::FONT_XS),
                         Theme::t4(),
                     );
                 }
@@ -203,17 +240,17 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     } else if is_hovered {
                         (30, 64, 1.0)
                     } else {
-                        (20, 30, 0.5)
+                        (20, 30, Theme::STROKE_SUBTLE)
                     };
 
                     painter.rect_filled(
                         clip_rect,
-                        Rounding::same(7.0),
+                        Rounding::same(Theme::RADIUS),
                         Theme::with_alpha(clip.color, bg_alpha),
                     );
                     painter.rect_stroke(
                         clip_rect,
-                        Rounding::same(7.0),
+                        Rounding::same(Theme::RADIUS),
                         Stroke::new(border_width, Theme::with_alpha(clip.color, border_alpha)),
                     );
 
@@ -221,7 +258,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     if is_selected {
                         painter.rect_stroke(
                             clip_rect.expand(1.0),
-                            Rounding::same(8.0),
+                            Rounding::same(Theme::RADIUS + 1.0),
                             Stroke::new(1.0, Theme::with_alpha(clip.color, 20)),
                         );
                     }
@@ -233,8 +270,8 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         while x < clip_rect.right() - 2.0 {
                             painter.line_segment(
                                 [
-                                    Pos2::new(x, clip_rect.top() + 4.0),
-                                    Pos2::new(x, clip_rect.bottom() - 4.0),
+                                    Pos2::new(x, clip_rect.top() + Theme::SPACE_XS),
+                                    Pos2::new(x, clip_rect.bottom() - Theme::SPACE_XS),
                                 ],
                                 Stroke::new(1.0, Theme::with_alpha(clip.color, 30)),
                             );
@@ -249,7 +286,7 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                             Pos2::new(text_rect.left(), text_rect.center().y),
                             egui::Align2::LEFT_CENTER,
                             &clip.name,
-                            egui::FontId::proportional(9.0),
+                            egui::FontId::proportional(Theme::FONT_XS),
                             Theme::t1(),
                         );
                     }
@@ -262,8 +299,8 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         painter.rect_filled(
                             left_handle,
                             Rounding {
-                                nw: 7.0,
-                                sw: 7.0,
+                                nw: Theme::RADIUS,
+                                sw: Theme::RADIUS,
                                 ne: 0.0,
                                 se: 0.0,
                             },
@@ -279,8 +316,8 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                             Rounding {
                                 nw: 0.0,
                                 sw: 0.0,
-                                ne: 7.0,
-                                se: 7.0,
+                                ne: Theme::RADIUS,
+                                se: Theme::RADIUS,
                             },
                             Theme::with_alpha(clip.color, 60),
                         );
@@ -410,13 +447,13 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
 fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<TimelineAction>) {
     let toolbar_frame = egui::Frame::none()
         .fill(Theme::bg1())
-        .stroke(Stroke::new(0.5, Theme::with_alpha(Color32::WHITE, 6)))
-        .inner_margin(egui::Margin::symmetric(8.0, 0.0));
+        .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_06()))
+        .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 0.0));
 
     toolbar_frame.show(ui, |ui| {
         ui.set_height(TOOLBAR_HEIGHT);
         ui.horizontal_centered(|ui| {
-            ui.spacing_mut().item_spacing = Vec2::new(8.0, 0.0);
+            ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
 
             // Snap toggle
             let snap_label_color = if state.snap_enabled {
@@ -424,17 +461,17 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
             } else {
                 Theme::t3()
             };
-            if draw_mini_toggle(ui, state.snap_enabled) {
+            if widgets::toggle_switch(ui, state.snap_enabled) {
                 state.snap_enabled = !state.snap_enabled;
                 actions.push(TimelineAction::ToggleSnap);
             }
             ui.label(
                 egui::RichText::new("Snap")
-                    .size(10.5)
+                    .size(Theme::FONT_XS)
                     .color(snap_label_color),
             );
 
-            ui.add_space(8.0);
+            ui.add_space(Theme::SPACE_SM);
 
             // Ripple toggle
             let ripple_label_color = if state.ripple_enabled {
@@ -442,17 +479,17 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
             } else {
                 Theme::t3()
             };
-            if draw_mini_toggle(ui, state.ripple_enabled) {
+            if widgets::toggle_switch(ui, state.ripple_enabled) {
                 state.ripple_enabled = !state.ripple_enabled;
                 actions.push(TimelineAction::ToggleRipple);
             }
             ui.label(
                 egui::RichText::new("Ripple")
-                    .size(10.5)
+                    .size(Theme::FONT_XS)
                     .color(ripple_label_color),
             );
 
-            ui.add_space(12.0);
+            ui.add_space(Theme::SPACE_MD);
 
             // Timecode
             let ph = state.playhead as i32;
@@ -472,27 +509,23 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
             };
             ui.label(
                 egui::RichText::new(format!("{} / {}", fmt(ph), fmt(total)))
-                    .size(8.5)
+                    .size(Theme::FONT_XS)
                     .color(Theme::t4())
                     .family(egui::FontFamily::Monospace),
             );
 
             // Separator
-            ui.add_space(4.0);
+            ui.add_space(Theme::SPACE_XS);
             let (sep_resp, sep_painter) =
                 ui.allocate_painter(Vec2::new(1.0, 12.0), egui::Sense::hover());
-            sep_painter.rect_filled(
-                sep_resp.rect,
-                0.0,
-                Color32::from_rgba_premultiplied(255, 255, 255, 10),
-            );
-            ui.add_space(4.0);
+            sep_painter.rect_filled(sep_resp.rect, 0.0, Theme::white_10());
+            ui.add_space(Theme::SPACE_XS);
 
             // Zoom controls
             if ui
                 .small_button(
                     egui::RichText::new("\u{2212}")
-                        .size(12.0)
+                        .size(Theme::FONT_SM)
                         .color(Theme::t3()),
                 )
                 .clicked()
@@ -506,11 +539,7 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
                 ui.allocate_painter(Vec2::new(50.0, 14.0), egui::Sense::click_and_drag());
             let zoom_rect = zoom_resp.rect;
             let bar_rect = Rect::from_center_size(zoom_rect.center(), Vec2::new(50.0, 3.0));
-            zoom_painter.rect_filled(
-                bar_rect,
-                Rounding::same(1.5),
-                Color32::from_rgba_premultiplied(255, 255, 255, 10),
-            );
+            zoom_painter.rect_filled(bar_rect, Rounding::same(1.5), Theme::white_10());
             let zoom_frac = ((state.zoom - 0.4) / 2.6).clamp(0.0, 1.0);
             let thumb_x = bar_rect.left() + zoom_frac * bar_rect.width();
             zoom_painter.circle_filled(
@@ -527,7 +556,11 @@ fn draw_toolbar(ui: &mut egui::Ui, state: &mut TimelineState, actions: &mut Vec<
             }
 
             if ui
-                .small_button(egui::RichText::new("+").size(12.0).color(Theme::t3()))
+                .small_button(
+                    egui::RichText::new("+")
+                        .size(Theme::FONT_SM)
+                        .color(Theme::t3()),
+                )
                 .clicked()
             {
                 state.zoom = (state.zoom + 0.2).min(3.0);
@@ -548,20 +581,17 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
 
         let header_frame = egui::Frame::none()
             .fill(Theme::bg1())
-            .stroke(Stroke::new(
-                0.5,
-                Color32::from_rgba_premultiplied(255, 255, 255, 4),
-            ))
-            .inner_margin(egui::Margin::symmetric(4.0, 0.0));
+            .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_04()))
+            .inner_margin(egui::Margin::symmetric(Theme::SPACE_XS, 0.0));
 
         header_frame.show(ui, |ui| {
             ui.set_height(TRACK_HEIGHT);
-            ui.set_width(HEADER_WIDTH - 8.0);
+            ui.set_width(HEADER_WIDTH - Theme::SPACE_SM);
             ui.horizontal_centered(|ui| {
-                ui.spacing_mut().item_spacing = Vec2::new(4.0, 0.0);
+                ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_XS, 0.0);
                 ui.label(
                     egui::RichText::new(*name)
-                        .size(8.0)
+                        .size(Theme::FONT_XS)
                         .color(text_color)
                         .strong(),
                 );
@@ -571,7 +601,11 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
                 } else {
                     Theme::with_alpha(Theme::t3(), 102)
                 };
-                let mute_resp = ui.label(egui::RichText::new("M").size(7.0).color(mute_color));
+                let mute_resp = ui.label(
+                    egui::RichText::new("M")
+                        .size(Theme::FONT_XS)
+                        .color(mute_color),
+                );
                 if mute_resp.clicked() {
                     state.track_muted[i] = !state.track_muted[i];
                 }
@@ -583,18 +617,14 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
 fn draw_ruler(painter: &egui::Painter, rect: Rect, state: &TimelineState) {
     let fps = state.fps;
     // Background
-    painter.rect_filled(
-        rect,
-        0.0,
-        Color32::from_rgba_premultiplied(255, 255, 255, 2),
-    );
+    painter.rect_filled(rect, 0.0, Theme::white_02());
     // Bottom border
     painter.line_segment(
         [
             Pos2::new(rect.left(), rect.bottom()),
             Pos2::new(rect.right(), rect.bottom()),
         ],
-        Stroke::new(0.5, Color32::from_rgba_premultiplied(255, 255, 255, 8)),
+        Stroke::new(Theme::STROKE_SUBTLE, Theme::white_08()),
     );
 
     // Tick marks
@@ -612,17 +642,18 @@ fn draw_ruler(painter: &egui::Painter, rect: Rect, state: &TimelineState) {
         let is_label = i % 10 == 0;
 
         let tick_height = if is_major { 12.0 } else { 5.0 };
-        let tick_alpha: u8 = if is_major { 26 } else { 8 };
+        let tick_color = if is_major {
+            Theme::white_10()
+        } else {
+            Theme::white_04()
+        };
 
         painter.line_segment(
             [
                 Pos2::new(x, rect.bottom() - tick_height),
                 Pos2::new(x, rect.bottom()),
             ],
-            Stroke::new(
-                0.5,
-                Color32::from_rgba_premultiplied(255, 255, 255, tick_alpha),
-            ),
+            Stroke::new(Theme::STROKE_SUBTLE, tick_color),
         );
 
         if is_label && i >= 0 {
@@ -633,44 +664,9 @@ fn draw_ruler(painter: &egui::Painter, rect: Rect, state: &TimelineState) {
                 Pos2::new(x + 2.0, rect.top() + 3.0),
                 egui::Align2::LEFT_TOP,
                 &label,
-                egui::FontId::monospace(7.0),
+                egui::FontId::monospace(Theme::FONT_XS),
                 Theme::t4(),
             );
         }
     }
-}
-
-/// Draw a small toggle (returns true if clicked).
-fn draw_mini_toggle(ui: &mut egui::Ui, on: bool) -> bool {
-    let desired_size = Vec2::new(32.0, 18.0);
-    let (resp, painter) = ui.allocate_painter(desired_size, egui::Sense::click());
-    let rect = resp.rect;
-
-    let (track_bg, track_border) = if on {
-        (
-            Theme::with_alpha(Theme::accent(), 102),
-            Theme::with_alpha(Theme::accent(), 153),
-        )
-    } else {
-        (
-            Color32::from_rgba_premultiplied(255, 255, 255, 15),
-            Color32::from_rgba_premultiplied(255, 255, 255, 20),
-        )
-    };
-    painter.rect_filled(rect, Rounding::same(9.0), track_bg);
-    painter.rect_stroke(rect, Rounding::same(9.0), Stroke::new(0.5, track_border));
-
-    let thumb_x = if on {
-        rect.right() - 9.0
-    } else {
-        rect.left() + 9.0
-    };
-    let thumb_color = if on {
-        Theme::accent()
-    } else {
-        Color32::from_rgba_premultiplied(255, 255, 255, 64)
-    };
-    painter.circle_filled(Pos2::new(thumb_x, rect.center().y), 7.0, thumb_color);
-
-    resp.clicked()
 }

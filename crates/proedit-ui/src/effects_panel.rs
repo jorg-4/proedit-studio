@@ -1,7 +1,7 @@
 //! Effects panel with collapsible categories.
 
 use crate::theme::Theme;
-use egui::{self, Color32, Rounding, Vec2};
+use egui::{self, Rounding, Vec2};
 
 // ── Data ───────────────────────────────────────────────────────
 
@@ -158,23 +158,27 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
         let header_resp = ui
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
-                ui.label(egui::RichText::new(chevron).size(8.0).color(Theme::t4()));
+                ui.label(
+                    egui::RichText::new(chevron)
+                        .size(Theme::FONT_XS)
+                        .color(Theme::t4()),
+                );
                 ui.label(
                     egui::RichText::new(cat.name)
-                        .size(9.5)
+                        .size(Theme::FONT_XS)
                         .color(Theme::t3())
                         .strong(),
                 );
 
                 // Count badge
                 let badge_frame = egui::Frame::none()
-                    .fill(Color32::from_rgba_premultiplied(2, 2, 2, 8))
-                    .rounding(Rounding::same(6.0))
+                    .fill(Theme::input_bg())
+                    .rounding(Rounding::same(Theme::RADIUS))
                     .inner_margin(egui::Margin::symmetric(5.0, 1.0));
                 badge_frame.show(ui, |ui| {
                     ui.label(
                         egui::RichText::new(format!("{}", cat.items.len()))
-                            .size(8.0)
+                            .size(Theme::FONT_XS)
                             .color(Theme::t4()),
                     );
                 });
@@ -190,26 +194,34 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
             for item in cat.items {
                 let icon = if item.is_ai { "\u{2726}" } else { "\u{25D1}" };
                 let text_color = if item.is_ai {
-                    Theme::with_alpha(Theme::purple(), 204) // purple+CC
+                    Theme::with_alpha(Theme::purple(), 204)
                 } else {
                     Theme::t2()
                 };
 
                 let item_frame = egui::Frame::none()
-                    .rounding(Rounding::same(7.0))
+                    .rounding(Rounding::same(Theme::RADIUS))
                     .inner_margin(egui::Margin {
-                        left: 16.0,
-                        right: 8.0,
-                        top: 4.0,
-                        bottom: 4.0,
+                        left: Theme::SPACE_MD,
+                        right: Theme::SPACE_SM,
+                        top: Theme::SPACE_XS,
+                        bottom: Theme::SPACE_XS,
                     });
 
                 let resp = item_frame
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
-                            ui.label(egui::RichText::new(icon).size(10.0).color(text_color));
-                            ui.label(egui::RichText::new(item.name).size(10.5).color(text_color));
+                            ui.label(
+                                egui::RichText::new(icon)
+                                    .size(Theme::FONT_XS)
+                                    .color(text_color),
+                            );
+                            ui.label(
+                                egui::RichText::new(item.name)
+                                    .size(Theme::FONT_XS)
+                                    .color(text_color),
+                            );
                         });
                     })
                     .response;
@@ -218,14 +230,14 @@ pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
                     let hover_bg = if item.is_ai {
                         Theme::with_alpha(Theme::purple(), 10)
                     } else {
-                        Color32::from_rgba_premultiplied(2, 2, 2, 10)
+                        Theme::white_04()
                     };
                     ui.painter()
-                        .rect_filled(resp.rect, Rounding::same(7.0), hover_bg);
+                        .rect_filled(resp.rect, Rounding::same(Theme::RADIUS), hover_bg);
                 }
             }
         }
 
-        ui.add_space(4.0);
+        ui.add_space(Theme::SPACE_XS);
     }
 }

@@ -3,6 +3,9 @@
 use crate::theme::Theme;
 use egui::{self, Color32, Pos2, Rect, Rounding, Stroke, Vec2};
 
+// ── Local domain constants ──────────────────────────────────────
+const PLAY_ICON_SIZE: f32 = 40.0;
+
 // ── State ──────────────────────────────────────────────────────
 
 pub struct ViewerState {
@@ -46,9 +49,8 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     // ── Animated gradient background ───────────────────────
     let ph = state.playhead_frames;
     let _angle = 135.0 + ph * 0.2;
-    let bg_dark = Color32::from_rgb(11, 15, 23);
 
-    painter.rect_filled(rect, 0.0, bg_dark);
+    painter.rect_filled(rect, 0.0, Theme::bg());
 
     // Subtle mid-tone overlay in the center region
     let mid_rect = rect.shrink2(Vec2::new(rect.width() * 0.2, rect.height() * 0.2));
@@ -74,7 +76,7 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     painter.rect_stroke(
         inset,
         0.0,
-        Stroke::new(1.0, Color32::from_rgba_premultiplied(255, 255, 255, 8)),
+        Stroke::new(Theme::STROKE_EMPHASIS, Theme::white_04()),
     );
 
     // ── Idle / empty hint ─────────────────────────────────
@@ -83,14 +85,14 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
             Pos2::new(rect.center().x, rect.center().y - 10.0),
             egui::Align2::CENTER_CENTER,
             "\u{25B6}",
-            egui::FontId::proportional(40.0),
-            Color32::from_rgba_premultiplied(255, 255, 255, 25),
+            egui::FontId::proportional(PLAY_ICON_SIZE),
+            Theme::white_10(),
         );
         painter.text(
             Pos2::new(rect.center().x, rect.center().y + 30.0),
             egui::Align2::CENTER_CENTER,
             "Open a video file to begin",
-            egui::FontId::proportional(10.0),
+            egui::FontId::proportional(Theme::FONT_XS),
             Theme::t4(),
         );
     } else if !state.playing && state.selected_clip.is_none() {
@@ -98,14 +100,14 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
             Pos2::new(rect.center().x, rect.center().y - 10.0),
             egui::Align2::CENTER_CENTER,
             "\u{25B6}",
-            egui::FontId::proportional(40.0),
-            Color32::from_rgba_premultiplied(255, 255, 255, 25),
+            egui::FontId::proportional(PLAY_ICON_SIZE),
+            Theme::white_10(),
         );
         painter.text(
             Pos2::new(rect.center().x, rect.center().y + 30.0),
             egui::Align2::CENTER_CENTER,
             "SPACE TO PLAY \u{00B7} J K L SHUTTLE",
-            egui::FontId::proportional(9.0),
+            egui::FontId::proportional(Theme::FONT_XS),
             Theme::t4(),
         );
     }
@@ -119,11 +121,7 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
 
     // Gradient backdrop
     // Top transparent → bottom dark
-    painter.rect_filled(
-        transport_rect,
-        0.0,
-        Color32::from_rgba_premultiplied(0, 0, 0, 100),
-    );
+    painter.rect_filled(transport_rect, 0.0, Theme::scrim());
 
     let bar_y = transport_rect.center().y;
     let bar_left = transport_rect.left() + 14.0;
@@ -139,12 +137,12 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     } else {
         (Theme::accent(), Theme::t1(), "\u{25B6}") // ▶
     };
-    painter.rect_filled(btn_rect, Rounding::same(8.0), btn_bg);
+    painter.rect_filled(btn_rect, Rounding::same(Theme::RADIUS), btn_bg);
     painter.text(
         btn_rect.center(),
         egui::Align2::CENTER_CENTER,
         btn_icon,
-        egui::FontId::proportional(13.0),
+        egui::FontId::proportional(Theme::FONT_SM),
         btn_color,
     );
 
@@ -171,7 +169,7 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         Pos2::new(bar_left + btn_size + 12.0, bar_y),
         egui::Align2::LEFT_CENTER,
         &timecode,
-        egui::FontId::monospace(13.0),
+        egui::FontId::monospace(Theme::FONT_SM),
         Theme::t1(),
     );
 
@@ -180,12 +178,16 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         let speed_text = format!("{:.1}x", state.speed);
         let speed_x = bar_left + btn_size + 90.0;
         let badge_rect = Rect::from_center_size(Pos2::new(speed_x, bar_y), Vec2::new(36.0, 18.0));
-        painter.rect_filled(badge_rect, Rounding::same(6.0), Theme::accent_subtle());
+        painter.rect_filled(
+            badge_rect,
+            Rounding::same(Theme::RADIUS),
+            Theme::accent_subtle(),
+        );
         painter.text(
             badge_rect.center(),
             egui::Align2::CENTER_CENTER,
             &speed_text,
-            egui::FontId::proportional(9.0),
+            egui::FontId::proportional(Theme::FONT_XS),
             Theme::accent(),
         );
     }
@@ -206,7 +208,7 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         Pos2::new(transport_rect.right() - 14.0, bar_y),
         egui::Align2::RIGHT_CENTER,
         format!("{}fps", state.fps.round() as i32),
-        egui::FontId::monospace(9.0),
+        egui::FontId::monospace(Theme::FONT_XS),
         Theme::t3(),
     );
 
@@ -224,16 +226,12 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         for (i, (icon, color)) in tool_icons.iter().zip(tool_colors.iter()).enumerate() {
             let tx = tools_start_x + i as f32 * 34.0;
             let tool_rect = Rect::from_center_size(Pos2::new(tx, bar_y), Vec2::new(28.0, 24.0));
-            painter.rect_filled(
-                tool_rect,
-                Rounding::same(6.0),
-                Color32::from_rgba_premultiplied(2, 2, 2, 15),
-            );
+            painter.rect_filled(tool_rect, Rounding::same(Theme::RADIUS), Theme::white_06());
             painter.text(
                 tool_rect.center(),
                 egui::Align2::CENTER_CENTER,
                 icon,
-                egui::FontId::proportional(10.0),
+                egui::FontId::proportional(Theme::FONT_XS),
                 *color,
             );
         }

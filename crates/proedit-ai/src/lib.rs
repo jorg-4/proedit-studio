@@ -20,6 +20,7 @@
 
 pub mod analysis_store;
 pub mod audio_classify;
+pub mod auto_color;
 pub mod auto_edit;
 pub mod content_index;
 pub mod error;

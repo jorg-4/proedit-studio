@@ -1,6 +1,15 @@
-//! ProEdit Effects - GPU effects library
+//! ProEdit Effects - GPU effects library and CPU processing pipelines
 //!
-//! Provides video effects implemented as GPU compute shaders.
+//! Provides video effects, transitions, chroma keying, masking,
+//! optical flow, motion blur, and frame interpolation.
+
+pub mod chroma_key;
+pub mod frame_interp;
+pub mod mask;
+pub mod motion_blur;
+pub mod optical_flow;
+pub mod transition;
+pub mod transitions;
 
 use proedit_core::Result;
 use proedit_gpu::GpuTexture;

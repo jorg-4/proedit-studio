@@ -9,7 +9,12 @@ members = [
     "crates/proedit-ui",
     "crates/proedit-audio",
     "crates/proedit-ai",
+    "crates/proedit-tracking",
+    "crates/proedit-plugin",
+    "crates/proedit-scripting",
+    "crates/proedit-color",
     "crates/proedit-app",
+    "crates/proedit-tests",
 ]
 
 [workspace.package]
@@ -30,6 +35,10 @@ proedit-effects = { path = "crates/proedit-effects" }
 proedit-ui = { path = "crates/proedit-ui" }
 proedit-audio = { path = "crates/proedit-audio" }
 proedit-ai = { path = "crates/proedit-ai" }
+proedit-tracking = { path = "crates/proedit-tracking" }
+proedit-plugin = { path = "crates/proedit-plugin" }
+proedit-scripting = { path = "crates/proedit-scripting" }
+proedit-color = { path = "crates/proedit-color" }
 
 # Error handling
 thiserror = "1.0"

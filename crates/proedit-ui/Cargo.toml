@@ -8,6 +8,7 @@ description = "UI widgets for ProEdit Studio"
 [dependencies]
 proedit-core.workspace = true
 proedit-timeline.workspace = true
+proedit-effects.workspace = true
 egui.workspace = true
 egui_dock.workspace = true
 serde.workspace = true

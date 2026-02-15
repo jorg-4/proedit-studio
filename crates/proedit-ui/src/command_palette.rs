@@ -119,7 +119,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
     let screen = ctx.screen_rect();
     let backdrop_layer = egui::LayerId::new(egui::Order::Foreground, egui::Id::new("cmd_backdrop"));
     let painter = ctx.layer_painter(backdrop_layer);
-    painter.rect_filled(screen, 0.0, Color32::from_rgba_premultiplied(0, 0, 0, 102));
+    painter.rect_filled(screen, 0.0, Theme::scrim());
 
     // Command palette window
     let palette_width = 460.0_f32.min(screen.width() - 40.0);
@@ -133,7 +133,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
         )
         .show(ctx, |ui| {
             Theme::glass_frame()
-                .rounding(Rounding::same(16.0))
+                .rounding(Rounding::same(Theme::RADIUS_LG))
                 .show(ui, |ui| {
                     ui.set_width(palette_width);
                     ui.set_max_height(max_height);
@@ -151,7 +151,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                             icon_rect.1.center(),
                             egui::Align2::CENTER_CENTER,
                             "\u{2318}",
-                            egui::FontId::proportional(12.0),
+                            egui::FontId::proportional(Theme::FONT_SM),
                             Theme::accent(),
                         );
 
@@ -160,24 +160,15 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                             egui::TextEdit::singleline(&mut state.query)
                                 .hint_text("Search commands\u{2026}")
                                 .desired_width(palette_width - 60.0)
-                                .font(egui::FontId::proportional(14.0))
+                                .font(egui::FontId::proportional(Theme::FONT_MD))
                                 .frame(false),
                         );
                         resp.request_focus();
                     });
 
-                    ui.add_space(4.0);
-                    // Separator
-                    let sep_rect = ui.allocate_space(Vec2::new(ui.available_width(), 0.5));
-                    ui.painter().rect_filled(
-                        egui::Rect::from_min_size(
-                            sep_rect.1.min,
-                            Vec2::new(sep_rect.1.width(), 0.5),
-                        ),
-                        0.0,
-                        Theme::with_alpha(Color32::WHITE, 10),
-                    );
-                    ui.add_space(4.0);
+                    ui.add_space(Theme::SPACE_XS);
+                    Theme::draw_separator(ui);
+                    ui.add_space(Theme::SPACE_XS);
 
                     // ── Command list ───────────────────────
                     egui::ScrollArea::vertical()
@@ -195,7 +186,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
 
                                 let frame = egui::Frame::none()
                                     .fill(bg)
-                                    .rounding(Rounding::same(9.0))
+                                    .rounding(Rounding::same(Theme::RADIUS))
                                     .inner_margin(egui::Margin::symmetric(10.0, 7.0));
 
                                 let resp = frame
@@ -207,7 +198,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                             let icon_bg = if is_ai {
                                                 Theme::with_alpha(Theme::purple(), 30)
                                             } else {
-                                                Color32::from_rgba_premultiplied(2, 2, 2, 8)
+                                                Theme::input_bg()
                                             };
                                             let icon_color =
                                                 if is_ai { Theme::purple() } else { Theme::t2() };
@@ -218,21 +209,21 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                             );
                                             icon_painter.rect_filled(
                                                 icon_resp.rect,
-                                                Rounding::same(6.0),
+                                                Rounding::same(Theme::RADIUS),
                                                 icon_bg,
                                             );
                                             icon_painter.text(
                                                 icon_resp.rect.center(),
                                                 egui::Align2::CENTER_CENTER,
                                                 cmd.icon,
-                                                egui::FontId::proportional(12.0),
+                                                egui::FontId::proportional(Theme::FONT_SM),
                                                 icon_color,
                                             );
 
                                             // Name
                                             ui.label(
                                                 egui::RichText::new(cmd.name)
-                                                    .size(12.5)
+                                                    .size(Theme::FONT_SM)
                                                     .color(Theme::t1()),
                                             );
 
@@ -240,14 +231,14 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                             if is_ai {
                                                 let badge_frame = egui::Frame::none()
                                                     .fill(Theme::with_alpha(Theme::purple(), 30))
-                                                    .rounding(Rounding::same(8.0))
+                                                    .rounding(Rounding::same(Theme::RADIUS))
                                                     .inner_margin(egui::Margin::symmetric(
                                                         6.0, 2.0,
                                                     ));
                                                 badge_frame.show(ui, |ui| {
                                                     ui.label(
                                                         egui::RichText::new("AI")
-                                                            .size(8.0)
+                                                            .size(Theme::FONT_XS)
                                                             .color(Theme::purple())
                                                             .strong(),
                                                     );
@@ -261,15 +252,10 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                                     // Shortcut
                                                     if cmd.shortcut != "\u{2014}" {
                                                         let key_frame = egui::Frame::none()
-                                                            .fill(Color32::from_rgba_premultiplied(
-                                                                2, 2, 2, 10,
-                                                            ))
+                                                            .fill(Theme::input_bg())
                                                             .stroke(Stroke::new(
-                                                                0.5,
-                                                                Theme::with_alpha(
-                                                                    Color32::WHITE,
-                                                                    10,
-                                                                ),
+                                                                Theme::STROKE_SUBTLE,
+                                                                Theme::white_10(),
                                                             ))
                                                             .rounding(Rounding::same(4.0))
                                                             .inner_margin(egui::Margin::symmetric(
@@ -278,7 +264,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                                         key_frame.show(ui, |ui| {
                                                             ui.label(
                                                                 egui::RichText::new(cmd.shortcut)
-                                                                    .size(9.5)
+                                                                    .size(Theme::FONT_XS)
                                                                     .color(Theme::t3())
                                                                     .family(
                                                                         egui::FontFamily::Monospace,
@@ -302,18 +288,9 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                             }
                         });
 
-                    ui.add_space(4.0);
-                    // Footer separator
-                    let sep_rect2 = ui.allocate_space(Vec2::new(ui.available_width(), 0.5));
-                    ui.painter().rect_filled(
-                        egui::Rect::from_min_size(
-                            sep_rect2.1.min,
-                            Vec2::new(sep_rect2.1.width(), 0.5),
-                        ),
-                        0.0,
-                        Theme::with_alpha(Color32::WHITE, 10),
-                    );
-                    ui.add_space(4.0);
+                    ui.add_space(Theme::SPACE_XS);
+                    Theme::draw_separator(ui);
+                    ui.add_space(Theme::SPACE_XS);
 
                     // Footer hints
                     ui.horizontal(|ui| {
@@ -324,7 +301,7 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
                                     egui::RichText::new(
                                         "\u{2191}\u{2193} Navigate    \u{21B5} Run    esc Close",
                                     )
-                                    .size(9.0)
+                                    .size(Theme::FONT_XS)
                                     .color(Theme::t4()),
                                 );
                             },

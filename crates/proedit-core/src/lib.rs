@@ -10,12 +10,14 @@ pub mod color;
 pub mod error;
 pub mod frame;
 pub mod geometry;
+pub mod keyframe;
 pub mod time;
 
 pub use color::{Color, ColorConfig, ColorSpace, TransferFunction};
 pub use error::{ProEditError, Result};
 pub use frame::{FrameBuffer, FrameId, FramePlane, PixelFormat, SharedFrameBuffer};
 pub use geometry::{Rect, Transform2D, Vec2};
+pub use keyframe::{CubicBezier, EasingCurve, Keyframe, KeyframeTrack};
 pub use time::{FrameRate, RationalTime, TimeRange};
 
 /// Memory budget constants for 8GB M1 Mac
