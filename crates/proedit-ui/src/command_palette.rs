@@ -134,6 +134,12 @@ pub fn show_command_palette(ctx: &egui::Context, state: &mut CommandPaletteState
         .show(ctx, |ui| {
             Theme::glass_frame()
                 .rounding(Rounding::same(Theme::RADIUS_LG))
+                .shadow(egui::epaint::Shadow {
+                    offset: Vec2::new(0.0, 16.0),
+                    blur: 60.0,
+                    spread: 4.0,
+                    color: Color32::from_rgba_premultiplied(10, 20, 50, 120),
+                })
                 .show(ui, |ui| {
                     ui.set_width(palette_width);
                     ui.set_max_height(max_height);

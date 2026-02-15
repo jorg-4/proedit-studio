@@ -46,14 +46,39 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     let (response, painter) = ui.allocate_painter(available, egui::Sense::click());
     let rect = response.rect;
 
-    // ── Background — dark gradient-like fill ─────────────────
+    // ── Background — animated gradient ────────────────────────
     painter.rect_filled(rect, 0.0, Color32::from_rgb(11, 15, 23));
 
-    // Subtle blue glow in center area
+    // Animated ambient glow — drifting colored orbs
+    let cx = rect.center().x;
+    let cy = rect.center().y;
+    let ph = state.playhead_frames as f64;
+
+    // Blue glow (drifts with time)
+    let bx = cx + (time * 0.3 + ph * 0.02).sin() as f32 * rect.width() * 0.18;
+    let by = cy + (time * 0.2).cos() as f32 * rect.height() * 0.12;
     painter.circle_filled(
-        Pos2::new(rect.center().x * 0.85, rect.center().y * 0.85),
-        rect.width() * 0.18,
-        Color32::from_rgba_premultiplied(2, 3, 6, 6),
+        Pos2::new(bx, by),
+        rect.width() * 0.22,
+        Color32::from_rgba_premultiplied(3, 5, 14, 9),
+    );
+
+    // Purple glow (counter-phase)
+    let px = cx - (time * 0.25).cos() as f32 * rect.width() * 0.15;
+    let py = cy + (time * 0.35 + 1.0).sin() as f32 * rect.height() * 0.10;
+    painter.circle_filled(
+        Pos2::new(px, py),
+        rect.width() * 0.16,
+        Color32::from_rgba_premultiplied(4, 2, 8, 6),
+    );
+
+    // Teal glow (smaller, faster)
+    let tx = cx + (time * 0.5).cos() as f32 * rect.width() * 0.10;
+    let ty = cy - (time * 0.4).sin() as f32 * rect.height() * 0.08;
+    painter.circle_filled(
+        Pos2::new(tx, ty),
+        rect.width() * 0.10,
+        Color32::from_rgba_premultiplied(1, 4, 6, 5),
     );
 
     // Safe area guides (10% inset)
@@ -61,8 +86,11 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     painter.rect_stroke(
         safe_rect,
         Rounding::same(2.0),
-        Stroke::new(0.5, Color32::from_rgba_premultiplied(7, 7, 7, 7)),
+        Stroke::new(0.5, Color32::from_rgba_premultiplied(10, 10, 10, 10)),
     );
+
+    // Request repaint for animation
+    ui.ctx().request_repaint();
 
     // ── Idle / empty hint ─────────────────────────────────
     if !state.has_media {
@@ -109,6 +137,14 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
         transport_rect,
         0.0,
         Color32::from_rgba_premultiplied(0, 0, 0, 153), // rgba(0,0,0,.6)
+    );
+    // Glass top highlight line
+    painter.line_segment(
+        [
+            Pos2::new(transport_rect.left(), transport_rect.top()),
+            Pos2::new(transport_rect.right(), transport_rect.top()),
+        ],
+        Stroke::new(0.5, Color32::from_rgba_premultiplied(255, 255, 255, 12)),
     );
 
     let bar_y = transport_rect.center().y;

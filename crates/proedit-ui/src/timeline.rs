@@ -244,6 +244,15 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         new_hovered_clip = Some(clip.id);
                     }
 
+                    // Expand clip visually on hover/select for a subtle "pop"
+                    let draw_rect = if is_selected {
+                        clip_rect.expand(1.0)
+                    } else if is_hovered {
+                        clip_rect.expand(0.5)
+                    } else {
+                        clip_rect
+                    };
+
                     // Clip background — glass-like with color tint
                     let (bg_alpha, border_alpha, border_width) = if is_selected {
                         (55, 140, 1.0)
@@ -255,15 +264,15 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
 
                     // Base fill
                     painter.rect_filled(
-                        clip_rect,
+                        draw_rect,
                         Rounding::same(4.0),
                         Theme::with_alpha(clip.color, bg_alpha),
                     );
 
                     // Top gradient highlight (glass effect)
                     let top_highlight = Rect::from_min_size(
-                        clip_rect.min,
-                        Vec2::new(clip_rect.width(), clip_rect.height() * 0.35),
+                        draw_rect.min,
+                        Vec2::new(draw_rect.width(), draw_rect.height() * 0.4),
                     );
                     painter.rect_filled(
                         top_highlight,
@@ -273,11 +282,30 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                             sw: 0.0,
                             se: 0.0,
                         },
-                        Color32::from_rgba_premultiplied(255, 255, 255, 4),
+                        Color32::from_rgba_premultiplied(255, 255, 255, 6),
+                    );
+
+                    // Bottom gradient darkening (glass depth)
+                    let bot_darken = Rect::from_min_max(
+                        Pos2::new(
+                            draw_rect.left(),
+                            draw_rect.bottom() - draw_rect.height() * 0.3,
+                        ),
+                        draw_rect.max,
+                    );
+                    painter.rect_filled(
+                        bot_darken,
+                        Rounding {
+                            nw: 0.0,
+                            ne: 0.0,
+                            sw: 4.0,
+                            se: 4.0,
+                        },
+                        Color32::from_rgba_premultiplied(0, 0, 0, 8),
                     );
 
                     painter.rect_stroke(
-                        clip_rect,
+                        draw_rect,
                         Rounding::same(4.0),
                         Stroke::new(border_width, Theme::with_alpha(clip.color, border_alpha)),
                     );
@@ -285,9 +313,14 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     // Selected glow — outer ring with color glow
                     if is_selected {
                         painter.rect_stroke(
-                            clip_rect.expand(1.0),
-                            Rounding::same(5.0),
-                            Stroke::new(1.5, Theme::with_alpha(clip.color, 25)),
+                            draw_rect.expand(1.5),
+                            Rounding::same(6.0),
+                            Stroke::new(2.0, Theme::with_alpha(clip.color, 20)),
+                        );
+                        painter.rect_stroke(
+                            draw_rect.expand(3.0),
+                            Rounding::same(7.0),
+                            Stroke::new(1.0, Theme::with_alpha(clip.color, 8)),
                         );
                     }
 
@@ -333,9 +366,18 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         }
                     }
 
-                    // Clip name
-                    let text_rect = clip_rect.shrink2(Vec2::new(6.0, 0.0));
+                    // Clip name with text shadow
+                    let text_rect = draw_rect.shrink2(Vec2::new(6.0, 0.0));
                     if text_rect.width() > 20.0 {
+                        // Shadow pass
+                        painter.text(
+                            Pos2::new(text_rect.left() + 0.5, text_rect.center().y + 0.5),
+                            egui::Align2::LEFT_CENTER,
+                            &clip.name,
+                            egui::FontId::proportional(Theme::FONT_XS),
+                            Color32::from_rgba_premultiplied(0, 0, 0, 90),
+                        );
+                        // Main text
                         painter.text(
                             Pos2::new(text_rect.left(), text_rect.center().y),
                             egui::Align2::LEFT_CENTER,
@@ -351,8 +393,8 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         let handle_alpha = if is_selected { 100 } else { 65 };
                         // Left handle
                         let left_handle = Rect::from_min_size(
-                            clip_rect.min,
-                            Vec2::new(handle_w, clip_rect.height()),
+                            draw_rect.min,
+                            Vec2::new(handle_w, draw_rect.height()),
                         );
                         painter.rect_filled(
                             left_handle,
@@ -375,8 +417,8 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                         }
                         // Right handle
                         let right_handle = Rect::from_min_size(
-                            Pos2::new(clip_rect.right() - handle_w, clip_rect.top()),
-                            Vec2::new(handle_w, clip_rect.height()),
+                            Pos2::new(draw_rect.right() - handle_w, draw_rect.top()),
+                            Vec2::new(handle_w, draw_rect.height()),
                         );
                         painter.rect_filled(
                             right_handle,
@@ -463,22 +505,27 @@ pub fn show_timeline(ui: &mut egui::Ui, state: &mut TimelineState) -> Vec<Timeli
                     );
                     painter.add(tri);
 
-                    // Playhead line
-                    painter.line_segment(
-                        [
-                            Pos2::new(ph_x, ruler_rect.bottom()),
-                            Pos2::new(ph_x, rect.bottom()),
-                        ],
-                        Stroke::new(1.5, Theme::red()),
-                    );
-                    // Glow
-                    painter.line_segment(
-                        [
-                            Pos2::new(ph_x, ruler_rect.bottom()),
-                            Pos2::new(ph_x, rect.bottom()),
-                        ],
-                        Stroke::new(4.0, Theme::with_alpha(Theme::red(), 30)),
-                    );
+                    // Playhead line — gradient fade (brighter at top, fades toward bottom)
+                    let ph_segments = 6;
+                    let ph_total_h = rect.bottom() - ruler_rect.bottom();
+                    for seg in 0..ph_segments {
+                        let frac_top = seg as f32 / ph_segments as f32;
+                        let frac_bot = (seg + 1) as f32 / ph_segments as f32;
+                        let alpha = (255.0 * (1.0 - frac_top * 0.65)) as u8;
+                        let glow_alpha = (40.0 * (1.0 - frac_top * 0.8)) as u8;
+                        let y_top = ruler_rect.bottom() + frac_top * ph_total_h;
+                        let y_bot = ruler_rect.bottom() + frac_bot * ph_total_h;
+                        // Glow behind
+                        painter.line_segment(
+                            [Pos2::new(ph_x, y_top), Pos2::new(ph_x, y_bot)],
+                            Stroke::new(5.0, Theme::with_alpha(Theme::red(), glow_alpha)),
+                        );
+                        // Core line
+                        painter.line_segment(
+                            [Pos2::new(ph_x, y_top), Pos2::new(ph_x, y_bot)],
+                            Stroke::new(1.5, Theme::with_alpha(Theme::red(), alpha)),
+                        );
+                    }
                 }
 
                 // Snap indicator line

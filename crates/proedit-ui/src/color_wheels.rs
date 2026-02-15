@@ -92,17 +92,25 @@ fn draw_wheel(ui: &mut egui::Ui, index: usize, state: &mut ColorWheelsState, _ti
     let center = response.rect.center();
     let radius = WHEEL_RADIUS - 2.0;
 
-    // Outer ring — approximate conic gradient with segments (domain-specific color computation)
-    let segments = 36;
+    // Outer glow ring
+    painter.circle_stroke(
+        center,
+        radius + 2.0,
+        Stroke::new(2.0, Color32::from_rgba_premultiplied(15, 20, 40, 25)),
+    );
+
+    // Outer ring — approximate conic gradient with segments (increased saturation)
+    let segments = 48;
     for seg in 0..segments {
         let angle0 = (seg as f32 / segments as f32) * std::f32::consts::TAU;
         let angle1 = ((seg + 1) as f32 / segments as f32) * std::f32::consts::TAU;
         let hue_shift = (index as f32 * 90.0).to_radians();
         let hue = angle0 + hue_shift;
-        let r = ((hue.cos() * 0.5 + 0.5) * 80.0 + 40.0) as u8;
-        let g = (((hue + 2.094).cos() * 0.5 + 0.5) * 80.0 + 40.0) as u8;
-        let b = (((hue + 4.189).cos() * 0.5 + 0.5) * 80.0 + 40.0) as u8;
-        let color = Color32::from_rgba_premultiplied(r, g, b, 46);
+        // Increased saturation: wider range (120 + 60 base vs 80 + 40)
+        let r = ((hue.cos() * 0.5 + 0.5) * 120.0 + 50.0) as u8;
+        let g = (((hue + 2.094).cos() * 0.5 + 0.5) * 120.0 + 50.0) as u8;
+        let b = (((hue + 4.189).cos() * 0.5 + 0.5) * 120.0 + 50.0) as u8;
+        let color = Color32::from_rgba_premultiplied(r, g, b, 55);
 
         let p0 = Pos2::new(
             center.x + angle0.cos() * radius,
@@ -112,7 +120,7 @@ fn draw_wheel(ui: &mut egui::Ui, index: usize, state: &mut ColorWheelsState, _ti
             center.x + angle1.cos() * radius,
             center.y + angle1.sin() * radius,
         );
-        painter.line_segment([p0, p1], Stroke::new(3.0, color));
+        painter.line_segment([p0, p1], Stroke::new(3.5, color));
     }
 
     // Center disk

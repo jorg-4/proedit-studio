@@ -129,20 +129,33 @@ pub fn show_inspector(ui: &mut egui::Ui, state: &mut InspectorState) -> Vec<Insp
 
     // ── Header ─────────────────────────────────────────────
     let header_frame = egui::Frame::none()
-        .fill(Theme::with_alpha(clip.color, 8))
-        .stroke(Stroke::new(Theme::STROKE_SUBTLE, Theme::white_06()))
+        .fill(Theme::with_alpha(clip.color, 14))
+        .stroke(Stroke::new(
+            Theme::STROKE_SUBTLE,
+            Theme::with_alpha(clip.color, 35),
+        ))
         .rounding(Rounding::same(Theme::RADIUS))
         .inner_margin(egui::Margin::symmetric(Theme::SPACE_SM, 8.0));
 
     header_frame.show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
-            // Color dot
+            // Color dot with glow halo
             let (dot_resp, dot_painter) =
-                ui.allocate_painter(Vec2::splat(10.0), egui::Sense::hover());
-            dot_painter.circle_filled(dot_resp.rect.center(), 5.0, clip.color);
+                ui.allocate_painter(Vec2::splat(14.0), egui::Sense::hover());
+            let dot_center = dot_resp.rect.center();
+            // Outer glow halo
+            dot_painter.circle_filled(dot_center, 7.0, Theme::with_alpha(clip.color, 20));
+            // Main dot
+            dot_painter.circle_filled(dot_center, 5.0, clip.color);
+            // Specular highlight
+            dot_painter.circle_filled(
+                egui::Pos2::new(dot_center.x - 1.0, dot_center.y - 1.5),
+                1.8,
+                Color32::from_rgba_premultiplied(255, 255, 255, 50),
+            );
             dot_painter.circle_stroke(
-                dot_resp.rect.center(),
+                dot_center,
                 5.0,
                 Stroke::new(0.5, Theme::with_alpha(clip.color, 140)),
             );

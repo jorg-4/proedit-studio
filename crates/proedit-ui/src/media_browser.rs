@@ -128,7 +128,7 @@ fn show_media_browser_inner(
             )
             .fill(bg)
             .stroke(border)
-            .rounding(Rounding::same(Theme::RADIUS));
+            .rounding(Rounding::same(10.0)); // pill shape
 
             if ui.add(chip_btn).clicked() {
                 state.active_filter = i;
@@ -201,14 +201,36 @@ fn show_media_browser_inner(
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing = Vec2::new(Theme::SPACE_SM, 0.0);
 
-                            // Thumbnail
+                            // Thumbnail — two-tone gradient fill
                             let (thumb_resp, thumb_painter) =
                                 ui.allocate_painter(Vec2::new(34.0, 22.0), egui::Sense::hover());
                             let thumb_rect = thumb_resp.rect;
+                            // Darker base
                             thumb_painter.rect_filled(
                                 thumb_rect,
                                 Rounding::same(4.0),
-                                Theme::with_alpha(item.color, 60),
+                                Theme::with_alpha(item.color, 35),
+                            );
+                            // Brighter bottom half for gradient effect
+                            let bot_half = egui::Rect::from_min_max(
+                                egui::Pos2::new(thumb_rect.left(), thumb_rect.center().y),
+                                thumb_rect.max,
+                            );
+                            thumb_painter.rect_filled(
+                                bot_half,
+                                Rounding {
+                                    nw: 0.0,
+                                    ne: 0.0,
+                                    sw: 4.0,
+                                    se: 4.0,
+                                },
+                                Theme::with_alpha(item.color, 30),
+                            );
+                            // Border
+                            thumb_painter.rect_stroke(
+                                thumb_rect,
+                                Rounding::same(4.0),
+                                Stroke::new(0.5, Theme::with_alpha(item.color, 50)),
                             );
                             thumb_painter.text(
                                 thumb_rect.center(),

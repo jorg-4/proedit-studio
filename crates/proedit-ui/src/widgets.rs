@@ -22,13 +22,15 @@ pub fn toggle_switch(ui: &mut egui::Ui, on: bool) -> bool {
     painter.rect_filled(rect, pill_rounding, track_bg);
     painter.rect_stroke(rect, pill_rounding, Stroke::new(0.5, track_border));
 
-    // Thumb
+    // Thumb — smooth animated position
     let thumb_radius = 6.0;
-    let thumb_x = if on {
-        rect.right() - thumb_radius - 2.0
-    } else {
-        rect.left() + thumb_radius + 2.0
-    };
+    let anim_t = ui
+        .ctx()
+        .animate_bool_with_time(resp.id.with("toggle_anim"), on, 0.15);
+    let thumb_x = egui::lerp(
+        rect.left() + thumb_radius + 2.0..=rect.right() - thumb_radius - 2.0,
+        anim_t,
+    );
     let thumb_color = if on {
         Theme::accent()
     } else {
@@ -87,7 +89,7 @@ pub fn themed_slider(
         // Background track
         track_painter.rect_filled(bar_rect, Rounding::same(2.0), Theme::white_06());
 
-        // Fill
+        // Fill — gradient from dark to bright
         let min = *range.start();
         let max = *range.end();
         let frac = if max > min {
@@ -96,9 +98,37 @@ pub fn themed_slider(
             0.0
         };
         let fill_width = bar_rect.width() * frac.clamp(0.0, 1.0);
-        let fill_rect =
-            egui::Rect::from_min_size(bar_rect.min, Vec2::new(fill_width, track_height));
-        track_painter.rect_filled(fill_rect, Rounding::same(2.0), accent);
+        if fill_width > 2.0 {
+            // Multi-segment gradient fill
+            let segments = 3;
+            let seg_w = fill_width / segments as f32;
+            for s in 0..segments {
+                let seg_frac = s as f32 / segments as f32;
+                let alpha = (100.0 + seg_frac * 155.0) as u8; // 100→255 gradient
+                let seg_rect = egui::Rect::from_min_size(
+                    egui::Pos2::new(bar_rect.left() + s as f32 * seg_w, bar_rect.top()),
+                    Vec2::new(seg_w + 0.5, track_height), // +0.5 overlap to avoid gaps
+                );
+                let seg_rounding = if s == 0 {
+                    Rounding {
+                        nw: 2.0,
+                        sw: 2.0,
+                        ne: 0.0,
+                        se: 0.0,
+                    }
+                } else if s == segments - 1 {
+                    Rounding {
+                        nw: 0.0,
+                        sw: 0.0,
+                        ne: 2.0,
+                        se: 2.0,
+                    }
+                } else {
+                    Rounding::ZERO
+                };
+                track_painter.rect_filled(seg_rect, seg_rounding, Theme::with_alpha(accent, alpha));
+            }
+        }
 
         // Thumb — glass effect
         let thumb_x = bar_rect.left() + fill_width;

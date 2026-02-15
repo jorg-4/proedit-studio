@@ -136,11 +136,23 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
             let (resp, painter) = ui.allocate_painter(Vec2::splat(13.0), Sense::click());
             let center = resp.rect.center();
             painter.circle_filled(center, 6.0, *color);
-            // Darker ring for depth
+            // Inner shadow ring for depth (3D gel effect)
+            painter.circle_stroke(
+                center,
+                5.0,
+                Stroke::new(1.0, Color32::from_rgba_premultiplied(0, 0, 0, 40)),
+            );
+            // Outer darker ring
             painter.circle_stroke(
                 center,
                 6.0,
                 Stroke::new(0.5, Theme::with_alpha(*color, 140)),
+            );
+            // Specular highlight — small bright spot at top
+            painter.circle_filled(
+                egui::Pos2::new(center.x - 1.5, center.y - 2.0),
+                2.0,
+                Color32::from_rgba_premultiplied(255, 255, 255, 70),
             );
             // Show symbol on hover
             if resp.hovered() {
@@ -282,7 +294,23 @@ pub fn show_top_bar(ui: &mut Ui, state: &mut TopBarState) -> TopBarResponse {
                     .stroke(border)
                     .rounding(Rounding::same(Theme::RADIUS));
 
-                    if ui.add(btn_widget).clicked() && !is_active {
+                    let btn_resp = ui.add(btn_widget);
+                    // Active page underline indicator
+                    if is_active {
+                        let underline_rect = egui::Rect::from_min_size(
+                            egui::Pos2::new(
+                                btn_resp.rect.left() + 4.0,
+                                btn_resp.rect.bottom() - 1.5,
+                            ),
+                            Vec2::new(btn_resp.rect.width() - 8.0, 2.0),
+                        );
+                        ui.painter().rect_filled(
+                            underline_rect,
+                            Rounding::same(1.0),
+                            Theme::accent(),
+                        );
+                    }
+                    if btn_resp.clicked() && !is_active {
                         state.active_page = page;
                         actions.push(TopBarAction::PageChanged(page));
                     }
