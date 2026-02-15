@@ -131,7 +131,7 @@ impl ProEditApp {
             }
         };
 
-        Self {
+        let mut app = Self {
             ai_engine: Some(ai_bridge::init_ai_engine()),
             project,
             decoder,
@@ -158,7 +158,120 @@ impl ProEditApp {
             audio_mixer: AudioMixerState::default(),
             curve_editor: CurveEditorState::default(),
             export_dialog: ExportDialogState::default(),
+        };
+        // Load demo content so the app looks populated on first launch
+        if app.decoder.is_none() {
+            app.load_demo_content();
         }
+        app
+    }
+
+    /// Populate timeline and media browser with sample content for demo purposes.
+    fn load_demo_content(&mut self) {
+        use proedit_ui::media_browser::{MediaItem, MediaKind};
+        use proedit_ui::timeline::ClipKind;
+
+        self.timeline.clips = vec![
+            TimelineClip {
+                id: 1,
+                name: "Interview A.mp4".into(),
+                color: Theme::accent(),
+                start: 0.0,
+                dur: 120.0,
+                track: 2,
+                clip_type: ClipKind::Video,
+            },
+            TimelineClip {
+                id: 2,
+                name: "B-Roll Forest.mp4".into(),
+                color: Theme::cyan(),
+                start: 60.0,
+                dur: 90.0,
+                track: 1,
+                clip_type: ClipKind::Video,
+            },
+            TimelineClip {
+                id: 3,
+                name: "Title Card".into(),
+                color: Theme::purple(),
+                start: 10.0,
+                dur: 40.0,
+                track: 0,
+                clip_type: ClipKind::Gfx,
+            },
+            TimelineClip {
+                id: 4,
+                name: "BG Music.wav".into(),
+                color: Theme::green(),
+                start: 0.0,
+                dur: 200.0,
+                track: 3,
+                clip_type: ClipKind::Audio,
+            },
+            TimelineClip {
+                id: 5,
+                name: "VO Take 3.wav".into(),
+                color: Theme::pink(),
+                start: 20.0,
+                dur: 80.0,
+                track: 4,
+                clip_type: ClipKind::Audio,
+            },
+            TimelineClip {
+                id: 6,
+                name: "SFX Whoosh".into(),
+                color: Theme::amber(),
+                start: 58.0,
+                dur: 12.0,
+                track: 5,
+                clip_type: ClipKind::Audio,
+            },
+        ];
+
+        self.media_browser.items = vec![
+            MediaItem {
+                name: "Interview A.mp4".into(),
+                kind: MediaKind::Video,
+                duration: "5:00".into(),
+                size: "1.2 GB".into(),
+                color: Theme::accent(),
+            },
+            MediaItem {
+                name: "B-Roll Forest.mp4".into(),
+                kind: MediaKind::Video,
+                duration: "3:45".into(),
+                size: "890 MB".into(),
+                color: Theme::cyan(),
+            },
+            MediaItem {
+                name: "Title Card".into(),
+                kind: MediaKind::Gfx,
+                duration: "\u{2014}".into(),
+                size: "2.4 MB".into(),
+                color: Theme::purple(),
+            },
+            MediaItem {
+                name: "BG Music.wav".into(),
+                kind: MediaKind::Audio,
+                duration: "8:20".into(),
+                size: "42 MB".into(),
+                color: Theme::green(),
+            },
+            MediaItem {
+                name: "VO Take 3.wav".into(),
+                kind: MediaKind::Audio,
+                duration: "3:20".into(),
+                size: "18 MB".into(),
+                color: Theme::pink(),
+            },
+            MediaItem {
+                name: "SFX Whoosh".into(),
+                kind: MediaKind::Audio,
+                duration: "0:02".into(),
+                size: "320 KB".into(),
+                color: Theme::amber(),
+            },
+        ];
     }
 
     fn decode_next_frame(&mut self) -> bool {
@@ -718,6 +831,18 @@ impl eframe::App for ProEditApp {
                 self.last_frame_time = std::time::Instant::now();
             }
             ctx.request_repaint();
+        }
+
+        // Simulate audio levels for visual feedback
+        if self.playing {
+            self.audio_mixer.levels = [
+                (0.4 + 0.3 * (time * 2.1).sin() as f32 + 0.2 * (time * 7.3).sin() as f32)
+                    .clamp(0.0, 1.0),
+                (0.3 + 0.2 * (time * 1.7 + 1.0).sin() as f32 + 0.15 * (time * 5.9).sin() as f32)
+                    .clamp(0.0, 1.0),
+                (0.2 + 0.15 * (time * 3.1 + 2.0).sin() as f32 + 0.1 * (time * 11.3).sin() as f32)
+                    .clamp(0.0, 1.0),
+            ];
         }
 
         if self.current_frame.is_none() && self.decoder.is_some() {

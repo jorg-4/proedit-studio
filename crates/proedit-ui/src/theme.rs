@@ -172,6 +172,26 @@ impl Theme {
             .inner_margin(egui::Margin::symmetric(Self::SPACE_SM, 5.0))
     }
 
+    /// Draw an accent-colored top line on a panel (glass panel finish).
+    pub fn draw_accent_top_line(ui: &mut egui::Ui) {
+        let width = ui.available_width();
+        let (resp, painter) = ui.allocate_painter(Vec2::new(width, 1.0), egui::Sense::hover());
+        let rect = resp.rect;
+        // Gradient: accent at center, fading to transparent at edges
+        let segments = 5;
+        let seg_w = width / segments as f32;
+        for s in 0..segments {
+            let frac = s as f32 / segments as f32;
+            let center_dist = (frac + 0.5 / segments as f32 - 0.5).abs() * 2.0;
+            let alpha = ((1.0 - center_dist) * 40.0) as u8;
+            let seg_rect = egui::Rect::from_min_size(
+                egui::Pos2::new(rect.left() + s as f32 * seg_w, rect.top()),
+                Vec2::new(seg_w + 0.5, 1.0),
+            );
+            painter.rect_filled(seg_rect, 0.0, Self::with_alpha(Self::accent(), alpha));
+        }
+    }
+
     /// Draw a reusable 1px horizontal divider.
     pub fn draw_separator(ui: &mut egui::Ui) {
         let width = ui.available_width();

@@ -36,14 +36,33 @@ pub fn show_audio_mixer(ctx: &egui::Context, state: &mut AudioMixerState) {
                 .show(ui, |ui| {
                     ui.set_width(200.0);
                     ui.spacing_mut().item_spacing = Vec2::new(0.0, Theme::SPACE_SM);
+                    Theme::draw_accent_top_line(ui);
+                    ui.add_space(Theme::SPACE_XS);
 
-                    // Header
-                    ui.label(
-                        egui::RichText::new("AUDIO MIXER")
-                            .size(Theme::FONT_XS)
-                            .color(Theme::t3())
-                            .strong(),
-                    );
+                    // Header with icon
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
+                        let (icon_resp, icon_painter) =
+                            ui.allocate_painter(Vec2::splat(16.0), egui::Sense::hover());
+                        icon_painter.rect_filled(
+                            icon_resp.rect,
+                            Rounding::same(4.0),
+                            Theme::with_alpha(Theme::green(), 25),
+                        );
+                        icon_painter.text(
+                            icon_resp.rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            "\u{266A}",
+                            egui::FontId::proportional(10.0),
+                            Theme::green(),
+                        );
+                        ui.label(
+                            egui::RichText::new("AUDIO MIXER")
+                                .size(Theme::FONT_XS)
+                                .color(Theme::t3())
+                                .strong(),
+                        );
+                    });
 
                     // Master slider
                     mixer_slider(ui, "Master", &mut state.master_volume, Theme::green());
@@ -129,6 +148,12 @@ fn mixer_slider(ui: &mut egui::Ui, label: &str, value: &mut f32, accent: Color32
             5.0,
             egui::Stroke::new(1.0, Color32::from_rgba_premultiplied(0, 0, 0, 60)),
         );
+        // Thumb glow
+        track_painter.circle_stroke(
+            thumb_center,
+            7.0,
+            egui::Stroke::new(1.0, Theme::with_alpha(accent, 20)),
+        );
 
         if track_resp.dragged() || track_resp.clicked() {
             if let Some(pos) = track_resp.interact_pointer_pos() {
@@ -160,29 +185,68 @@ fn level_meter(ui: &mut egui::Ui, label: &str, level: f32) {
             );
         });
 
-        // Meter bar
+        // Segmented LED meter — green/amber/red zones
         let bar_width = 120.0;
+        let bar_height = 6.0;
         let (bar_resp, bar_painter) =
-            ui.allocate_painter(Vec2::new(bar_width, 4.0), egui::Sense::hover());
+            ui.allocate_painter(Vec2::new(bar_width, bar_height), egui::Sense::hover());
         let bar_rect = bar_resp.rect;
 
-        bar_painter.rect_filled(bar_rect, Rounding::same(2.0), Theme::white_10());
+        let segments = 24;
+        let gap = 1.0;
+        let seg_width = (bar_width - gap * (segments - 1) as f32) / segments as f32;
 
-        let fill_width = bar_rect.width() * level;
-        let fill_color = if level > 0.9 {
-            Theme::red()
-        } else if level > 0.8 {
-            Theme::amber()
+        for s in 0..segments {
+            let frac = s as f32 / segments as f32;
+            let x = bar_rect.left() + s as f32 * (seg_width + gap);
+            let seg_rect = Rect::from_min_size(
+                Pos2::new(x, bar_rect.top()),
+                Vec2::new(seg_width, bar_height),
+            );
+
+            let zone_color = if frac > 0.9 {
+                Theme::red()
+            } else if frac > 0.75 {
+                Theme::amber()
+            } else {
+                Theme::green()
+            };
+
+            if frac < level {
+                bar_painter.rect_filled(seg_rect, Rounding::same(0.5), zone_color);
+            } else {
+                bar_painter.rect_filled(seg_rect, Rounding::same(0.5), Theme::white_04());
+            }
+        }
+
+        // Peak indicator (bright line at peak position)
+        if level > 0.01 {
+            let peak_x = bar_rect.left() + level.clamp(0.0, 1.0) * bar_width;
+            let peak_color = if level > 0.9 {
+                Theme::red()
+            } else if level > 0.75 {
+                Theme::amber()
+            } else {
+                Theme::green()
+            };
+            bar_painter.rect_filled(
+                Rect::from_min_size(
+                    Pos2::new(peak_x - 1.0, bar_rect.top()),
+                    Vec2::new(2.0, bar_height),
+                ),
+                Rounding::ZERO,
+                peak_color,
+            );
+        }
+
+        // dB value (proper logarithmic scale)
+        let db = if level > 0.001 {
+            20.0 * level.log10()
         } else {
-            Theme::green()
+            -60.0
         };
-        let fill_rect = Rect::from_min_size(bar_rect.min, Vec2::new(fill_width, 4.0));
-        bar_painter.rect_filled(fill_rect, Rounding::same(2.0), fill_color);
-
-        // dB value
-        let db = level * 100.0 - 100.0;
         ui.label(
-            egui::RichText::new(format!("{:.0}dB", db))
+            egui::RichText::new(format!("{:+.0}", db))
                 .size(Theme::FONT_XS)
                 .color(Theme::t4())
                 .family(egui::FontFamily::Monospace),

@@ -925,8 +925,11 @@ fn draw_track_headers(ui: &mut egui::Ui, state: &mut TimelineState) {
 
 fn draw_ruler(painter: &egui::Painter, rect: Rect, state: &TimelineState) {
     let fps = state.fps;
-    // Background
+    // Background with subtle gradient
     painter.rect_filled(rect, 0.0, Theme::white_02());
+    // Darken bottom half for depth
+    let ruler_bot = Rect::from_min_max(Pos2::new(rect.left(), rect.center().y), rect.max);
+    painter.rect_filled(ruler_bot, 0.0, Color32::from_rgba_premultiplied(0, 0, 0, 5));
     // Bottom border
     painter.line_segment(
         [

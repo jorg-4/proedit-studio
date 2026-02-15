@@ -150,6 +150,32 @@ impl Default for EffectsPanelState {
 pub fn show_effects_panel(ui: &mut egui::Ui, state: &mut EffectsPanelState) {
     ui.spacing_mut().item_spacing = Vec2::new(0.0, 2.0);
 
+    // Panel header with icon
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing = Vec2::new(6.0, 0.0);
+        let (icon_resp, icon_painter) =
+            ui.allocate_painter(Vec2::splat(16.0), egui::Sense::hover());
+        icon_painter.rect_filled(
+            icon_resp.rect,
+            Rounding::same(4.0),
+            Theme::with_alpha(Theme::purple(), 25),
+        );
+        icon_painter.text(
+            icon_resp.rect.center(),
+            egui::Align2::CENTER_CENTER,
+            "\u{2726}",
+            egui::FontId::proportional(10.0),
+            Theme::purple(),
+        );
+        ui.label(
+            egui::RichText::new("EFFECTS")
+                .size(Theme::FONT_XS)
+                .color(Theme::t3())
+                .strong(),
+        );
+    });
+    ui.add_space(Theme::SPACE_XS);
+
     for (cat_idx, cat) in CATEGORIES.iter().enumerate() {
         // Category header
         let is_expanded = state.expanded[cat_idx];

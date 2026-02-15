@@ -103,11 +103,25 @@ pub fn show_curve_editor(
     let (response, painter) = ui.allocate_painter(available, egui::Sense::click_and_drag());
     let rect = response.rect;
 
-    // Background
+    // Background — subtle gradient feel
     painter.rect_filled(rect, 0.0, Theme::bg());
+    // Slight darkening at bottom for depth
+    let bottom_grad = Rect::from_min_max(
+        Pos2::new(rect.left(), rect.bottom() - rect.height() * 0.3),
+        rect.max,
+    );
+    painter.rect_filled(
+        bottom_grad,
+        0.0,
+        Color32::from_rgba_premultiplied(0, 0, 0, 6),
+    );
 
-    // Border
-    painter.rect_stroke(rect, 0.0, Stroke::new(1.0, Theme::white_06()));
+    // Border with accent-tinted top line
+    painter.rect_stroke(rect, 0.0, Stroke::new(0.5, Theme::white_06()));
+    painter.line_segment(
+        [rect.left_top(), Pos2::new(rect.right(), rect.top())],
+        Stroke::new(1.0, Theme::with_alpha(Theme::accent(), 30)),
+    );
 
     if track.is_empty() {
         painter.text(
@@ -190,6 +204,15 @@ pub fn show_curve_editor(
         } else {
             Theme::t2()
         };
+
+        // Glow behind selected diamonds
+        if is_selected {
+            painter.circle_filled(
+                pos,
+                DIAMOND_SIZE + 5.0,
+                Theme::with_alpha(Theme::accent(), 18),
+            );
+        }
 
         // Diamond shape
         let diamond = egui::epaint::PathShape::convex_polygon(
@@ -428,6 +451,17 @@ fn draw_value_curve(
     }
 
     if points.len() >= 2 {
+        // Glow pass
+        for pair in points.windows(2) {
+            painter.line_segment(
+                [pair[0], pair[1]],
+                Stroke::new(
+                    CURVE_STROKE_WIDTH + 4.0,
+                    Theme::with_alpha(Theme::accent(), 15),
+                ),
+            );
+        }
+        // Core pass
         for pair in points.windows(2) {
             painter.line_segment(
                 [pair[0], pair[1]],
@@ -472,6 +506,14 @@ fn draw_speed_curve(
 
     if points.len() >= 2 {
         let speed_color = Theme::green();
+        // Glow pass
+        for pair in points.windows(2) {
+            painter.line_segment(
+                [pair[0], pair[1]],
+                Stroke::new(CURVE_STROKE_WIDTH + 4.0, Theme::with_alpha(speed_color, 15)),
+            );
+        }
+        // Core pass
         for pair in points.windows(2) {
             painter.line_segment(
                 [pair[0], pair[1]],

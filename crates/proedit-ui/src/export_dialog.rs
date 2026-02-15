@@ -1,7 +1,7 @@
 //! Export dialog — format selection, output path, progress bar, and cancel.
 
 use crate::theme::Theme;
-use egui::{self, Vec2};
+use egui::{self, Rounding, Stroke, Vec2};
 use proedit_media::export::ExportFormat;
 use std::path::PathBuf;
 
@@ -137,18 +137,48 @@ pub fn show_export_dialog(
                 ui.add_space(Theme::SPACE_SM);
             }
 
+            // ── Format info ──────────────────────────────
+            let fmt = format_from_index(state.format_index);
+            ui.label(
+                egui::RichText::new(format!(
+                    "{:?}  \u{00B7}  {}x{}",
+                    fmt.video_codec, fmt.width, fmt.height
+                ))
+                .size(Theme::FONT_XS)
+                .color(Theme::t4())
+                .family(egui::FontFamily::Monospace),
+            );
+
+            ui.add_space(Theme::SPACE_SM);
+
             // ── Buttons ──────────────────────────────────
             ui.horizontal(|ui| {
                 if state.exporting {
-                    if ui.button("Cancel").clicked() {
+                    let cancel_btn = egui::Button::new(
+                        egui::RichText::new("Cancel")
+                            .size(Theme::FONT_SM)
+                            .color(Theme::t1()),
+                    )
+                    .fill(Theme::with_alpha(Theme::red(), 30))
+                    .stroke(Stroke::new(1.0, Theme::with_alpha(Theme::red(), 80)))
+                    .rounding(Rounding::same(Theme::RADIUS))
+                    .min_size(Vec2::new(80.0, 32.0));
+                    if ui.add(cancel_btn).clicked() {
                         actions.push(ExportDialogAction::Cancel);
                     }
                 } else {
                     let can_export = !state.output_path.is_empty();
-                    if ui
-                        .add_enabled(can_export, egui::Button::new("Export"))
-                        .clicked()
-                    {
+                    let export_btn = egui::Button::new(
+                        egui::RichText::new("\u{2197} Export")
+                            .size(Theme::FONT_SM)
+                            .color(egui::Color32::WHITE)
+                            .strong(),
+                    )
+                    .fill(Theme::accent())
+                    .stroke(Stroke::new(1.0, Theme::with_alpha(Theme::accent(), 180)))
+                    .rounding(Rounding::same(Theme::RADIUS))
+                    .min_size(Vec2::new(100.0, 32.0));
+                    if ui.add_enabled(can_export, export_btn).clicked() {
                         let format = format_from_index(state.format_index);
                         let output_path = PathBuf::from(&state.output_path);
                         actions.push(ExportDialogAction::StartExport {

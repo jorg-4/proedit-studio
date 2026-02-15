@@ -54,39 +54,109 @@ pub fn show_viewer(ui: &mut egui::Ui, state: &ViewerState, time: f64) -> Vec<Vie
     let cy = rect.center().y;
     let ph = state.playhead_frames as f64;
 
-    // Blue glow (drifts with time)
-    let bx = cx + (time * 0.3 + ph * 0.02).sin() as f32 * rect.width() * 0.18;
-    let by = cy + (time * 0.2).cos() as f32 * rect.height() * 0.12;
+    // Blue glow (drifts with time) — larger and more vivid
+    let bx = cx + (time * 0.3 + ph * 0.02).sin() as f32 * rect.width() * 0.22;
+    let by = cy + (time * 0.2).cos() as f32 * rect.height() * 0.15;
     painter.circle_filled(
         Pos2::new(bx, by),
-        rect.width() * 0.22,
-        Color32::from_rgba_premultiplied(3, 5, 14, 9),
+        rect.width() * 0.25,
+        Color32::from_rgba_premultiplied(5, 8, 20, 12),
     );
 
-    // Purple glow (counter-phase)
-    let px = cx - (time * 0.25).cos() as f32 * rect.width() * 0.15;
-    let py = cy + (time * 0.35 + 1.0).sin() as f32 * rect.height() * 0.10;
+    // Purple glow (counter-phase) — richer
+    let px = cx - (time * 0.25).cos() as f32 * rect.width() * 0.18;
+    let py = cy + (time * 0.35 + 1.0).sin() as f32 * rect.height() * 0.12;
     painter.circle_filled(
         Pos2::new(px, py),
-        rect.width() * 0.16,
-        Color32::from_rgba_premultiplied(4, 2, 8, 6),
+        rect.width() * 0.18,
+        Color32::from_rgba_premultiplied(6, 3, 12, 9),
     );
 
     // Teal glow (smaller, faster)
-    let tx = cx + (time * 0.5).cos() as f32 * rect.width() * 0.10;
-    let ty = cy - (time * 0.4).sin() as f32 * rect.height() * 0.08;
+    let tx = cx + (time * 0.5).cos() as f32 * rect.width() * 0.12;
+    let ty = cy - (time * 0.4).sin() as f32 * rect.height() * 0.10;
     painter.circle_filled(
         Pos2::new(tx, ty),
-        rect.width() * 0.10,
-        Color32::from_rgba_premultiplied(1, 4, 6, 5),
+        rect.width() * 0.12,
+        Color32::from_rgba_premultiplied(2, 6, 10, 7),
     );
 
-    // Safe area guides (10% inset)
+    // Warm accent glow (very slow drift, adds depth)
+    let wx = cx + (time * 0.15).sin() as f32 * rect.width() * 0.08;
+    let wy = cy + (time * 0.12 + 2.5).cos() as f32 * rect.height() * 0.06;
+    painter.circle_filled(
+        Pos2::new(wx, wy),
+        rect.width() * 0.08,
+        Color32::from_rgba_premultiplied(8, 4, 2, 5),
+    );
+
+    // Mouse-tracking ambient light — Liquid Glass signature effect
+    if let Some(mouse_pos) = ui.ctx().input(|i| i.pointer.hover_pos()) {
+        if rect.contains(mouse_pos) {
+            // Outer soft glow
+            painter.circle_filled(
+                mouse_pos,
+                rect.width() * 0.12,
+                Color32::from_rgba_premultiplied(6, 10, 22, 10),
+            );
+            // Inner brighter core
+            painter.circle_filled(
+                mouse_pos,
+                rect.width() * 0.04,
+                Color32::from_rgba_premultiplied(10, 16, 32, 8),
+            );
+        }
+    }
+
+    // Composition grid — rule of thirds (subtle guide lines)
+    let grid_stroke = Stroke::new(0.3, Color32::from_rgba_premultiplied(255, 255, 255, 5));
+    let third_x1 = rect.left() + rect.width() / 3.0;
+    let third_x2 = rect.left() + rect.width() * 2.0 / 3.0;
+    let third_y1 = rect.top() + rect.height() / 3.0;
+    let third_y2 = rect.top() + rect.height() * 2.0 / 3.0;
+    painter.line_segment(
+        [
+            Pos2::new(third_x1, rect.top()),
+            Pos2::new(third_x1, rect.bottom()),
+        ],
+        grid_stroke,
+    );
+    painter.line_segment(
+        [
+            Pos2::new(third_x2, rect.top()),
+            Pos2::new(third_x2, rect.bottom()),
+        ],
+        grid_stroke,
+    );
+    painter.line_segment(
+        [
+            Pos2::new(rect.left(), third_y1),
+            Pos2::new(rect.right(), third_y1),
+        ],
+        grid_stroke,
+    );
+    painter.line_segment(
+        [
+            Pos2::new(rect.left(), third_y2),
+            Pos2::new(rect.right(), third_y2),
+        ],
+        grid_stroke,
+    );
+
+    // Safe area guides (10% inset) with label
     let safe_rect = rect.shrink2(rect.size() * 0.1);
     painter.rect_stroke(
         safe_rect,
         Rounding::same(2.0),
         Stroke::new(0.5, Color32::from_rgba_premultiplied(10, 10, 10, 10)),
+    );
+    // Safe area label
+    painter.text(
+        Pos2::new(safe_rect.left() + 4.0, safe_rect.top() + 2.0),
+        egui::Align2::LEFT_TOP,
+        "SAFE",
+        egui::FontId::monospace(8.0),
+        Color32::from_rgba_premultiplied(255, 255, 255, 8),
     );
 
     // Request repaint for animation

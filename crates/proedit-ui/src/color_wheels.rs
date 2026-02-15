@@ -36,6 +36,8 @@ pub fn show_color_wheels(ctx: &egui::Context, state: &mut ColorWheelsState, time
             Theme::glass_frame()
                 .inner_margin(egui::Margin::symmetric(18.0, 14.0))
                 .show(ui, |ui| {
+                    Theme::draw_accent_top_line(ui);
+                    ui.add_space(Theme::SPACE_XS);
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing = Vec2::new(14.0, 0.0);
 
@@ -166,8 +168,29 @@ fn draw_scope(ui: &mut egui::Ui, width: f32, height: f32, color: Color32, time: 
     let (response, painter) = ui.allocate_painter(Vec2::new(width, height), egui::Sense::hover());
     let rect = response.rect;
 
-    // Background
+    // Background with slight gradient
     painter.rect_filled(rect, Rounding::same(4.0), Theme::bg());
+    // Subtle color tint at bottom
+    let scope_bot = Rect::from_min_max(
+        Pos2::new(rect.left(), rect.bottom() - rect.height() * 0.4),
+        rect.max,
+    );
+    painter.rect_filled(
+        scope_bot,
+        Rounding {
+            nw: 0.0,
+            ne: 0.0,
+            sw: 4.0,
+            se: 4.0,
+        },
+        Theme::with_alpha(color, 4),
+    );
+    // Border
+    painter.rect_stroke(
+        rect,
+        Rounding::same(4.0),
+        Stroke::new(0.5, Theme::white_04()),
+    );
 
     // Grid lines
     for i in 1..=4 {
@@ -191,6 +214,12 @@ fn draw_scope(ui: &mut egui::Ui, width: f32, height: f32, color: Color32, time: 
         let y = rect.center().y - wave as f32 * height * 0.4;
 
         if let Some(prev_pos) = prev {
+            // Glow behind waveform
+            painter.line_segment(
+                [prev_pos, Pos2::new(x, y)],
+                Stroke::new(3.0, Theme::with_alpha(color, 25)),
+            );
+            // Core waveform
             painter.line_segment([prev_pos, Pos2::new(x, y)], Stroke::new(0.8, scope_color));
         }
         prev = Some(Pos2::new(x, y));
